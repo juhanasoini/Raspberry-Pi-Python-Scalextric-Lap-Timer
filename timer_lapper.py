@@ -4,6 +4,9 @@ from threading import Thread
 import RPi.GPIO as GPIO
 import time
 
+
+DEFAULT_RACE_LAPS = 3
+
 class StopWatch(Frame):
 	""" Implements a stop watch frame widget. """                                                                
 	def __init__(self, parent=None, **kw):        
@@ -169,7 +172,7 @@ class raceWidgets(Frame):
 		l = Label(self, text='Set Number of Laps')
 		l.config(bg=colBg1, fg=colFg1, font="Roboto 30")
 		l.pack(expand=1)
-		LapRace.set('10')
+		LapRace.set(DEFAULT_RACE_LAPS)
 		et = Entry(self, textvariable=LapRace, width=5, justify='center')
 		et.config(bd='0', bg=colBg2 ,fg=colFg2, highlightthickness=0, font="Roboto 34 bold")
 		et.pack(expand=1, pady=8)
@@ -374,7 +377,7 @@ def main():
 	root = Fullscreen_Window()
 	root.tk.geometry("1920x1080")
 	root.tk.configure(bg='#04080c')
-	root.tk.title('Scalextric Race Control')
+	root.tk.title('Tyco Race Control')
 	
 	bkgc = Canvas(root.tk, width=1920, height=411, bg=colBg2, highlightthickness=0)
 	bkgc.place(x=0, y=0)

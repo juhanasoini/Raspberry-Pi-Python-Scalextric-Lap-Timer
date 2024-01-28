@@ -3,8 +3,16 @@ from threading import Thread
 # from PIL import Image
 import RPi.GPIO as GPIO
 import time
+import pygame
+
+pygame.init()
+pygame.mixer.init()
 
 
+SOUND_START = pygame.mixer.Sound('sounds/startende_race_autos.mp3')
+SOUND_LAP = pygame.mixer.Sound('sounds/Doppler-4.wav')
+SOUND_FINISH = pygame.mixer.Sound('sounds/finish.mp3')
+SOUND_REVVING = pygame.mixer.Sound('sounds/revving.mp3')
 DEFAULT_RACE_LAPS = 3
 
 class StopWatch(Frame):
@@ -115,7 +123,8 @@ class StopWatch(Frame):
 			self._start = time.time() - self._elapsedtime
 			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			self._update()
-			self._running = 1        
+			self._running = 1
+			pygame.mixer.Sound.play(SOUND_START)    
     
 	def Stop(self):
 		""" Stop the stopwatch, ignore if stopped. """
@@ -139,6 +148,7 @@ class StopWatch(Frame):
 		self.spt.config(fg=colFg1)
 		self.best.config(fg=colFg1)
 		self.bestTime = 0
+		pygame.mixer.Sound.play(SOUND_REVVING)    
 
 		
 	def Finish(self):
@@ -147,6 +157,7 @@ class StopWatch(Frame):
 		self.Stop()
 		td = Thread(target=playBuzz, args=())
 		td.start()
+		pygame.mixer.Sound.play(SOUND_FINISH)    
 
 	def Lap(self):
 		'''Makes a lap, only if started'''
@@ -162,6 +173,7 @@ class StopWatch(Frame):
 			split.start()
 			bestCheck = Thread(target=self._bestLap, args=(float("{0:.3f}".format(tempo)),))
 			bestCheck.start()
+			pygame.mixer.Sound.play(SOUND_LAP)    
 	
 class raceWidgets(Frame):
 	def __init__(self, parent=None, **kw):        

@@ -1,19 +1,50 @@
 from tkinter import *
+from tkinter import ttk
 from threading import Thread
 # from PIL import Image
-import RPi.GPIO as GPIO
+#import RPi.GPIO as GPIO
 import time
 import pygame
+
+import pyttsx3
+
+engine = pyttsx3.init()
+engine.setProperty('rate', 140)
 
 pygame.init()
 pygame.mixer.init()
 
-
-SOUND_START = pygame.mixer.Sound('sounds/startende_race_autos.mp3')
-SOUND_LAP = pygame.mixer.Sound('sounds/Doppler-4.wav')
-SOUND_FINISH = pygame.mixer.Sound('sounds/finish.mp3')
-SOUND_REVVING = pygame.mixer.Sound('sounds/revving.mp3')
+SOUND_START = 'sounds/startende_race_autos.ogg'
+SOUND_LAP = 'sounds/Doppler-4.ogg'
+SOUND_FINISH = 'sounds/finished.ogg'
+SOUND_REVVING = 'sounds/revving.ogg'
 DEFAULT_RACE_LAPS = 3
+IS_TIMETRIAL = FALSE
+TIMETRIAL_BTN_COLOR = '#a1aeb4'
+
+def speak (text):
+	engine.stop()
+	engine.say(text)
+	engine.runAndWait()
+
+def playSound(sound):
+	pygame.mixer.music.set_volume(1)
+	pygame.mixer.music.stop()
+	match sound:
+		case 'start': 
+			pygame.mixer.music.load(SOUND_START),
+			pygame.mixer.music.play(start=1.6),
+		case 'lap':
+			pygame.mixer.music.set_volume(0.3),
+			pygame.mixer.music.load(SOUND_LAP),
+			pygame.mixer.music.play(),
+		case 'finish':	
+			pygame.mixer.music.load(SOUND_FINISH),
+			pygame.mixer.music.play(),
+		case 'rev':
+			pygame.mixer.music.load(SOUND_REVVING),
+			pygame.mixer.music.play(),
+	
 
 class StopWatch(Frame):
 	""" Implements a stop watch frame widget. """                                                                
@@ -36,8 +67,14 @@ class StopWatch(Frame):
 		self.lapmod2 = 0
 		self.today = time.strftime("%d %b %Y %H-%M-%S", time.localtime())
 	
+	def isLastLap(self, add = True):
+		currentCount = len(self.laps)
+		if (add == True):
+			currentCount += 1
+		return IS_TIMETRIAL == False and (currentCount == int(LapRace.get()))
+
 	def gpioTrigger(self):
-		if (len(self.laps)+1 == int(LapRace.get())): # Finish Race if last lap
+		if (self.isLastLap(self)): # Finish Race if last lap
 			self.Finish()
 		else:
 			self.Lap()
@@ -124,7 +161,7 @@ class StopWatch(Frame):
 			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			self._update()
 			self._running = 1
-			pygame.mixer.Sound.play(SOUND_START)    
+			playSound('start')  
     
 	def Stop(self):
 		""" Stop the stopwatch, ignore if stopped. """
@@ -133,6 +170,7 @@ class StopWatch(Frame):
 			self._elapsedtime = time.time() - self._start    
 			self._setTime(self._elapsedtime)
 			self._running = 0
+			playSound('finish')  
 
 	def Reset(self):
 		""" Reset the stopwatch. """
@@ -148,21 +186,20 @@ class StopWatch(Frame):
 		self.spt.config(fg=colFg1)
 		self.best.config(fg=colFg1)
 		self.bestTime = 0
-		pygame.mixer.Sound.play(SOUND_REVVING)    
+		playSound('rev')   
 
 		
 	def Finish(self):
 		""" Finish race for this lane """
 		self.Lap()
 		self.Stop()
-		td = Thread(target=playBuzz, args=())
-		td.start()
-		pygame.mixer.Sound.play(SOUND_FINISH)    
+		playSound('finish')
 
 	def Lap(self):
 		'''Makes a lap, only if started'''
 		split = Thread(target=splitTimes, args=())
 		tempo = self._elapsedtime - self.lapmod2
+			
 		if (self._running):
 			self.laps.append([self._setLapTime(tempo),float("{0:.3f}".format(tempo))])
 			self.m.insert(END, self.laps[-1][0])
@@ -173,7 +210,12 @@ class StopWatch(Frame):
 			split.start()
 			bestCheck = Thread(target=self._bestLap, args=(float("{0:.3f}".format(tempo)),))
 			bestCheck.start()
-			pygame.mixer.Sound.play(SOUND_LAP)    
+			playSound('lap')
+		elif (IS_TIMETRIAL):
+			self.Start()
+		
+		if (self.isLastLap(False)): # Finish Race if last lap
+			self.Stop()
 	
 class raceWidgets(Frame):
 	def __init__(self, parent=None, **kw):        
@@ -192,7 +234,7 @@ class raceWidgets(Frame):
 class Fullscreen_Window:
 	def __init__(self):
 		self.tk = Tk()
-		self.tk.attributes('-zoomed', True)
+		# self.tk.attributes('-zoomed', True)
 		self.frame = Frame(self.tk)
 		self.frame.pack()
 		self.state = True
@@ -212,10 +254,11 @@ class Fullscreen_Window:
 					
 		
 def triggerLap(channel):
-	if ((GPIO.input(channel)) and (channel == pins[0])):
-		sw.gpioTrigger()
-	elif ((GPIO.input(channel)) and (channel == pins[1])):
-		sw2.gpioTrigger()
+	# if ((GPIO.input(channel)) and (channel == pins[0])):
+	# 	sw.gpioTrigger()
+	# elif ((GPIO.input(channel)) and (channel == pins[1])):
+	# 	sw2.gpioTrigger()
+	return
 	
 def StartRace():
 	sw.Start()
@@ -226,20 +269,36 @@ def StopRace():
 	sw2.Stop()
 	
 def ResetRace():
+	StopRace()
 	sw.Reset()
 	sw2.Reset()
+	if(IS_TIMETRIAL):
+		speak("Time trial!")
+
+def ToggleTimeTrial():
+	global IS_TIMETRIAL
+	IS_TIMETRIAL = not IS_TIMETRIAL
+	TimeTrialBtnColor()
+
+def TimeTrialBtnColor():
+	global TIMETRIAL_BTN_COLOR
+	if (IS_TIMETRIAL):
+		speak("Time trial!")
+		btn_toggle_time_trial.config(background=colGreen)
+	else:
+		btn_toggle_time_trial.config(background=colFg1)
 	
 def RaceLights():
 	photo = PhotoImage(file="imgs/light_off_hd.png")
 	photo2 = PhotoImage(file="imgs/light_red_hd.png")
 	photo3 = PhotoImage(file="imgs/light_green_hd.png")
 	lights = []
-	coords = [[370,240],[610,240],[850,240],[1090,240],[1330,240]]
+	coords = [[425,120],[665,120],[905,120]]
 
 	cv = Canvas(root.tk, width=1920, height=1080, bg=colBg1, highlightthickness=0)
 	cv.place(x=0, y=0)
 
-	for i in range(5):
+	for i in range(len(coords)):
 		lights.append(Label(root.tk, image=photo, bg=colBg1))
 		lights[i].image = photo
 		lights[i].place(x=coords[i][0], y=coords[i][1])
@@ -249,13 +308,13 @@ def RaceLights():
 	root.tk.update()
 	time.sleep(1)
 	
-	for i in range(5):
+	for i in range(len(coords)):
 		time.sleep(1)
 		lights[i].config(image = photo2)
 		lights[i].image = photo2
 		root.tk.update()
 		
-	for i in range(5):
+	for i in range(len(coords)):
 		lights[i].config(image = photo3)
 		lights[i].image = photo3
 	
@@ -269,42 +328,10 @@ def RaceLights():
 	
 def LightsOut(lights):
 	time.sleep(1)
-	for i in range(5):
+	for i in range(3):
 		lights[i].destroy()
-	lights[5].destroy()
+	lights[3].destroy()
 	root.tk.update()
-		
-def playBuzz():
-	GPIO.setup(pins[2], GPIO.OUT)
-	pwm = GPIO.PWM(pins[2], 1000)
-	pwm.start(20)
-	time.sleep(0.1)
-	pwm.ChangeDutyCycle(100) #off
-	time.sleep(0.2)
-	pwm.ChangeDutyCycle(20) #on
-	pwm.ChangeFrequency(500)
-	time.sleep(0.1)
-	pwm.ChangeDutyCycle(100) #off
-	time.sleep(0.1)
-	pwm.ChangeDutyCycle(20) #on
-	time.sleep(0.2)
-	pwm.ChangeDutyCycle(100) #off
-	time.sleep(0.1)
-	pwm.ChangeDutyCycle(20) #on
-	pwm.ChangeFrequency(1000)
-	time.sleep(0.2)
-	pwm.ChangeDutyCycle(100) #off
-	time.sleep(0.1)
-	pwm.ChangeDutyCycle(20) #on
-	pwm.ChangeFrequency(1500)
-	time.sleep(0.2)
-	pwm.ChangeDutyCycle(100) #off
-	time.sleep(0.2)
-	pwm.ChangeDutyCycle(20) #on
-	pwm.ChangeFrequency(2200)
-	time.sleep(1)
-	pwm.ChangeDutyCycle(100)
-	GPIO.setup(pins[2], GPIO.IN)
 	
 def splitTimes():
 	c1 = 0
@@ -330,6 +357,8 @@ def splitTimes():
 		sw2.lapSplit.set('Split: +'+str(float("{0:.3f}".format(totalDiff))))
 		sw2.spt.config(fg=colRed)
 		sw2.l.config(fg=colRed)
+		
+		speak("Lane one in the lead!")
 	elif (len(sw.laps) < len(sw2.laps)):  # Lane 2 in the lead
 		sameLaps = len(sw.laps)
 		extraLaps = len(sw2.laps) - len(sw.laps)
@@ -348,6 +377,7 @@ def splitTimes():
 		sw.lapSplit.set('Split: +'+str(float("{0:.3f}".format(totalDiff))))
 		sw.spt.config(fg=colRed)
 		sw.l.config(fg=colRed)
+		speak("Lane two in the lead!")
 	else:  # equal Laps - just need the total same difference
 		sameLaps = len(sw.laps)
 		sameArr = [sw2.laps[:sameLaps], sw.laps[:sameLaps]]
@@ -373,7 +403,7 @@ def splitTimes():
 		
 				
 def main():
-	global root, sw, sw2, inputID, pins, LapRace, pwm, colBg1, colBg2, colFg1, colFg2, colGreen, colRed, colPurple, colScroll
+	global root, sw, sw2, inputID, pins, LapRace, pwm, colBg1, colBg2, colFg1, colFg2, colGreen, colRed, colPurple, colScroll, btn_toggle_time_trial, btn_start
 	colBg1 = '#04080c'
 	colBg2 = '#101e28'
 	colFg1 = '#a1aeb4'
@@ -384,7 +414,7 @@ def main():
 	colScroll = '#273a46'	
 	pins = [21,23,18] # lane1, lane2, buzzer
 	
-	GPIO.setmode(GPIO.BCM)
+	# GPIO.setmode(GPIO.BCM)
 	
 	root = Fullscreen_Window()
 	root.tk.geometry("1920x1080")
@@ -403,24 +433,27 @@ def main():
 	btnFrm.config(bg=colBg1)
 	btnFrm.pack(side=BOTTOM, anchor=S, fill=X, padx=20)
 
-	Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
+	#Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
+	btn_toggle_time_trial = Button(btnFrm, text='Time trial', command=ToggleTimeTrial, font=('Roboto 24'), bg=TIMETRIAL_BTN_COLOR, fg=colBg1, highlightthickness=0, relief=RAISED)
+	btn_toggle_time_trial.pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
 	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	Button(btnFrm, text='Stop', command=StopRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5) 
-	Button(btnFrm, text='Start', command=StartRace, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
+	btn_start = Button(btnFrm, text='Start', command=StartRace, font=('Roboto 24 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT)
+	btn_start.pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	Button(btnFrm, text='Lights', command=RaceLights, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 
 	raceSetup = raceWidgets(root.tk)
 	raceSetup.pack(side=BOTTOM, anchor=S, fill=X, pady=20)
 	
-	GPIO.setup(pins[0], GPIO.IN)
-	GPIO.add_event_detect(pins[0], GPIO.RISING, callback=triggerLap, bouncetime=1000)
-	GPIO.setup(pins[1], GPIO.IN)
-	GPIO.add_event_detect(pins[1], GPIO.RISING, callback=triggerLap, bouncetime=1000) 
+	# GPIO.setup(pins[0], GPIO.IN)
+	# GPIO.add_event_detect(pins[0], GPIO.RISING, callback=triggerLap, bouncetime=1000)
+	# GPIO.setup(pins[1], GPIO.IN)
+	# GPIO.add_event_detect(pins[1], GPIO.RISING, callback=triggerLap, bouncetime=1000) 
 
-	try:
-		root.tk.mainloop()
-	finally:
-		GPIO.cleanup()
+	# try:
+	root.tk.mainloop()
+	# finally:
+	# 	GPIO.cleanup()
 	
 
 if __name__ == '__main__':

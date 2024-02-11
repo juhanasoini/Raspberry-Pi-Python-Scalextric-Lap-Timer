@@ -2,14 +2,14 @@ from tkinter import *
 from tkinter import ttk
 from threading import Thread
 # from PIL import Image
-#import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 import time
 import pygame
 
-import pyttsx3
+#import pyttsx3
 
-engine = pyttsx3.init()
-engine.setProperty('rate', 140)
+# engine = pyttsx3.init()
+# engine.setProperty('rate', 140)
 
 pygame.init()
 pygame.mixer.init()
@@ -23,27 +23,27 @@ IS_TIMETRIAL = FALSE
 TIMETRIAL_BTN_COLOR = '#a1aeb4'
 
 def speak (text):
-	engine.stop()
-	engine.say(text)
-	engine.runAndWait()
+	return
+	# engine.stop()
+	# engine.say(text)
+	# engine.runAndWait()
 
 def playSound(sound):
 	pygame.mixer.music.set_volume(1)
 	pygame.mixer.music.stop()
-	match sound:
-		case 'start': 
-			pygame.mixer.music.load(SOUND_START),
-			pygame.mixer.music.play(start=1.6),
-		case 'lap':
-			pygame.mixer.music.set_volume(0.3),
-			pygame.mixer.music.load(SOUND_LAP),
-			pygame.mixer.music.play(),
-		case 'finish':	
-			pygame.mixer.music.load(SOUND_FINISH),
-			pygame.mixer.music.play(),
-		case 'rev':
-			pygame.mixer.music.load(SOUND_REVVING),
-			pygame.mixer.music.play(),
+	if sound == 'start': 
+		pygame.mixer.music.load(SOUND_START),
+		pygame.mixer.music.play(start=1.65),
+	elif sound == 'lap':
+		pygame.mixer.music.set_volume(0.3),
+		pygame.mixer.music.load(SOUND_LAP),
+		pygame.mixer.music.play(),
+	elif sound == 'finish':	
+		pygame.mixer.music.load(SOUND_FINISH),
+		pygame.mixer.music.play(),
+	elif sound == 'rev':
+		pygame.mixer.music.load(SOUND_REVVING),
+		pygame.mixer.music.play(),
 	
 
 class StopWatch(Frame):
@@ -254,11 +254,10 @@ class Fullscreen_Window:
 					
 		
 def triggerLap(channel):
-	# if ((GPIO.input(channel)) and (channel == pins[0])):
-	# 	sw.gpioTrigger()
-	# elif ((GPIO.input(channel)) and (channel == pins[1])):
-	# 	sw2.gpioTrigger()
-	return
+	if ((GPIO.input(channel)) and (channel == pins[0])):
+		sw.gpioTrigger()
+	elif ((GPIO.input(channel)) and (channel == pins[1])):
+		sw2.gpioTrigger()
 	
 def StartRace():
 	sw.Start()
@@ -279,6 +278,10 @@ def ToggleTimeTrial():
 	global IS_TIMETRIAL
 	IS_TIMETRIAL = not IS_TIMETRIAL
 	TimeTrialBtnColor()
+	
+def SetTimeTrial(value):
+	IS_TIMETRIAL = value
+	TimeTrialBtnColor()
 
 def TimeTrialBtnColor():
 	global TIMETRIAL_BTN_COLOR
@@ -289,6 +292,7 @@ def TimeTrialBtnColor():
 		btn_toggle_time_trial.config(background=colFg1)
 	
 def RaceLights():
+	SetTimeTrial(false)
 	photo = PhotoImage(file="imgs/light_off_hd.png")
 	photo2 = PhotoImage(file="imgs/light_red_hd.png")
 	photo3 = PhotoImage(file="imgs/light_green_hd.png")
@@ -414,7 +418,7 @@ def main():
 	colScroll = '#273a46'	
 	pins = [21,23,18] # lane1, lane2, buzzer
 	
-	# GPIO.setmode(GPIO.BCM)
+	GPIO.setmode(GPIO.BCM)
 	
 	root = Fullscreen_Window()
 	root.tk.geometry("1920x1080")
@@ -445,15 +449,15 @@ def main():
 	raceSetup = raceWidgets(root.tk)
 	raceSetup.pack(side=BOTTOM, anchor=S, fill=X, pady=20)
 	
-	# GPIO.setup(pins[0], GPIO.IN)
-	# GPIO.add_event_detect(pins[0], GPIO.RISING, callback=triggerLap, bouncetime=1000)
-	# GPIO.setup(pins[1], GPIO.IN)
-	# GPIO.add_event_detect(pins[1], GPIO.RISING, callback=triggerLap, bouncetime=1000) 
+	GPIO.setup(pins[0], GPIO.IN)
+	GPIO.add_event_detect(pins[0], GPIO.RISING, callback=triggerLap, bouncetime=1000)
+	GPIO.setup(pins[1], GPIO.IN)
+	GPIO.add_event_detect(pins[1], GPIO.RISING, callback=triggerLap, bouncetime=1000) 
 
-	# try:
-	root.tk.mainloop()
-	# finally:
-	# 	GPIO.cleanup()
+	try:
+		root.tk.mainloop()
+	finally:
+		GPIO.cleanup()
 	
 
 if __name__ == '__main__':

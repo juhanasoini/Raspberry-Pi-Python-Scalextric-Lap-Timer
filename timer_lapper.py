@@ -3,17 +3,6 @@ from threading import Thread
 # from PIL import Image
 import RPi.GPIO as GPIO
 import time
-import pygame
-
-pygame.init()
-pygame.mixer.init()
-
-
-SOUND_START = pygame.mixer.Sound('sounds/startende_race_autos.mp3')
-SOUND_LAP = pygame.mixer.Sound('sounds/Doppler-4.wav')
-SOUND_FINISH = pygame.mixer.Sound('sounds/finish.mp3')
-SOUND_REVVING = pygame.mixer.Sound('sounds/revving.mp3')
-DEFAULT_RACE_LAPS = 3
 
 class StopWatch(Frame):
 	""" Implements a stop watch frame widget. """                                                                
@@ -123,8 +112,7 @@ class StopWatch(Frame):
 			self._start = time.time() - self._elapsedtime
 			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			self._update()
-			self._running = 1
-			pygame.mixer.Sound.play(SOUND_START)    
+			self._running = 1        
     
 	def Stop(self):
 		""" Stop the stopwatch, ignore if stopped. """
@@ -148,7 +136,6 @@ class StopWatch(Frame):
 		self.spt.config(fg=colFg1)
 		self.best.config(fg=colFg1)
 		self.bestTime = 0
-		pygame.mixer.Sound.play(SOUND_REVVING)    
 
 		
 	def Finish(self):
@@ -157,7 +144,6 @@ class StopWatch(Frame):
 		self.Stop()
 		td = Thread(target=playBuzz, args=())
 		td.start()
-		pygame.mixer.Sound.play(SOUND_FINISH)    
 
 	def Lap(self):
 		'''Makes a lap, only if started'''
@@ -173,7 +159,6 @@ class StopWatch(Frame):
 			split.start()
 			bestCheck = Thread(target=self._bestLap, args=(float("{0:.3f}".format(tempo)),))
 			bestCheck.start()
-			pygame.mixer.Sound.play(SOUND_LAP)    
 	
 class raceWidgets(Frame):
 	def __init__(self, parent=None, **kw):        
@@ -181,10 +166,10 @@ class raceWidgets(Frame):
 		global LapRace
 		self.configure(bg=colBg1)
 		LapRace = StringVar()
-		l = Label(self, text='Set laps\ncount')
+		l = Label(self, text='Set Number of Laps')
 		l.config(bg=colBg1, fg=colFg1, font="Roboto 30")
 		l.pack(expand=1)
-		LapRace.set(DEFAULT_RACE_LAPS)
+		LapRace.set('10')
 		et = Entry(self, textvariable=LapRace, width=5, justify='center')
 		et.config(bd='0', bg=colBg2 ,fg=colFg2, highlightthickness=0, font="Roboto 34 bold")
 		et.pack(expand=1, pady=8)
@@ -389,7 +374,7 @@ def main():
 	root = Fullscreen_Window()
 	root.tk.geometry("1920x1080")
 	root.tk.configure(bg='#04080c')
-	root.tk.title('Tyco Race Control')
+	root.tk.title('Scalextric Race Control')
 	
 	bkgc = Canvas(root.tk, width=1920, height=411, bg=colBg2, highlightthickness=0)
 	bkgc.place(x=0, y=0)
@@ -401,13 +386,13 @@ def main():
 		
 	btnFrm = Frame(root.tk)
 	btnFrm.config(bg=colBg1)
-	btnFrm.pack(side=BOTTOM, anchor=S, fill=X, padx=20)
+	btnFrm.pack(side=BOTTOM, anchor=S, fill=X, padx=80)
 
-	Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
-	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
-	Button(btnFrm, text='Stop', command=StopRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5) 
-	Button(btnFrm, text='Start', command=StartRace, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
-	Button(btnFrm, text='Lights', command=RaceLights, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
+	Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=30, pady=(5,72))
+	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=30, pady=5)
+	Button(btnFrm, text='Stop', command=StopRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=30, pady=5) 
+	Button(btnFrm, text='Start', command=StartRace, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=30, pady=5)
+	Button(btnFrm, text='Lights', command=RaceLights, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=30, pady=5)
 
 	raceSetup = raceWidgets(root.tk)
 	raceSetup.pack(side=BOTTOM, anchor=S, fill=X, pady=20)

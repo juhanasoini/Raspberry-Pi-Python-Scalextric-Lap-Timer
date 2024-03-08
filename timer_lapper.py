@@ -182,6 +182,7 @@ class StopWatch(Frame):
 		self._setTime(self._elapsedtime)
 		self.lapSplit.set('Split: ')
 		self.bestLap.set('Best: ')
+		self.lapstr.set('Lap: 0 / 0')
 		self.l.config(fg=colFg1)
 		self.spt.config(fg=colFg1)
 		self.best.config(fg=colFg1)

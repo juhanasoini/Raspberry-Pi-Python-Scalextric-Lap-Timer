@@ -292,7 +292,7 @@ def TimeTrialBtnColor():
 		btn_toggle_time_trial.config(background=colFg1)
 	
 def RaceLights():
-	SetTimeTrial(false)
+	SetTimeTrial(False)
 	photo = PhotoImage(file="imgs/light_off_hd.png")
 	photo2 = PhotoImage(file="imgs/light_red_hd.png")
 	photo3 = PhotoImage(file="imgs/light_green_hd.png")

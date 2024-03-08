@@ -438,7 +438,7 @@ def main():
 	btnFrm.config(bg=colBg1)
 	btnFrm.pack(side=BOTTOM, anchor=S, fill=X, padx=20)
 
-	#Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
+	Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 12'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
 	btn_toggle_time_trial = Button(btnFrm, text='Time trial', command=ToggleTimeTrial, font=('Roboto 24'), bg=TIMETRIAL_BTN_COLOR, fg=colBg1, highlightthickness=0, relief=RAISED)
 	btn_toggle_time_trial.pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
 	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)

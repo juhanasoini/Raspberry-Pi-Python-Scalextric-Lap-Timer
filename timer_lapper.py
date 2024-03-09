@@ -177,8 +177,7 @@ class StopWatch(Frame):
 			self.after_cancel(self._timer)            
 			self._elapsedtime = time.time() - self._start    
 			self._setTime(self._elapsedtime)
-			self._running = 0
-			playSound('finish')  
+			self._running = 0 
 
 	def Reset(self):
 		""" Reset the stopwatch. """
@@ -210,7 +209,7 @@ class StopWatch(Frame):
 			
 		if (self._running):
 			self.laps.append([self._setLapTime(tempo),float("{0:.3f}".format(tempo))])
-			self._start = time.time()
+			# self._start = time.time()
 			self.m.insert(END, self.laps[-1][0])
 			self.m.yview_moveto(1)
 			self.lapmod2 = self._elapsedtime

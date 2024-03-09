@@ -20,6 +20,7 @@ SOUND_FINISH = 'sounds/finished.ogg'
 SOUND_REVVING = 'sounds/revving.ogg'
 SOUND_TONE_C = 'sounds/Tone.c.ogg'
 SOUND_TONE_C_OCTAVE = 'sounds/Tone.c_octave.ogg'
+SOUND_LAST_LAP = "sounds/lastlap.ogg"
 DEFAULT_RACE_LAPS = 3
 IS_TIMETRIAL = FALSE
 TIMETRIAL_BTN_COLOR = '#a1aeb4'
@@ -52,6 +53,8 @@ def playSound(sound):
 	elif sound == 'c_octave':
 		pygame.mixer.music.load(SOUND_TONE_C_OCTAVE),
 		pygame.mixer.music.play(start=0.55),
+	elif sound == 'lastlap':
+		pygame.mixer.music.load(SOUND_LAST_LAP),
 	
 
 class StopWatch(Frame):
@@ -75,14 +78,22 @@ class StopWatch(Frame):
 		self.lapmod2 = 0
 		self.today = time.strftime("%d %b %Y %H-%M-%S", time.localtime())
 	
-	def isLastLap(self, add = True):
+	def wasLastLap(self, add = True):
 		currentCount = len(self.laps)
 		if (add == True):
 			currentCount += 1
 		return IS_TIMETRIAL == False and (currentCount == int(LapRace.get()))
 
+	def isLastLap(self, add = True):
+		currentCount = len(self.laps)
+		if (add == True):
+			currentCount += 1
+		secondToLastCount = int(LapRace.get()) - 1
+		return currentCount == secondToLastCount
+
+
 	def gpioTrigger(self):
-		if (self.isLastLap(self)): # Finish Race if last lap
+		if (self.wasLastLap(self)): # Finish Race if last lap
 			self.Finish()
 		else:
 			self.Lap()
@@ -222,8 +233,12 @@ class StopWatch(Frame):
 			playSound('lap')
 		elif (IS_TIMETRIAL):
 			self.Start()
+
+		# Last lap
+		if (self.isLastLap(False)):
+			playSound('lastlap')
 		
-		if (self.isLastLap(False)): # Finish Race if last lap
+		if (self.wasLastLap(False)): # Finish Race if last lap
 			self.Stop()
 	
 class raceWidgets(Frame):
@@ -302,6 +317,8 @@ def TimeTrialBtnColor():
 	
 def RaceLights():
 	SetTimeTrial(False)
+	ResetRace()
+
 	photo = PhotoImage(file="imgs/light_off_hd.png")
 	photo2 = PhotoImage(file="imgs/light_red_hd.png")
 	photo3 = PhotoImage(file="imgs/light_green_hd.png")

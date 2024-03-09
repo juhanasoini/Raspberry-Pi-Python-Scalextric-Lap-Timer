@@ -48,10 +48,10 @@ def playSound(sound):
 		pygame.mixer.music.play(),
 	elif sound == 'c':
 		pygame.mixer.music.load(SOUND_TONE_C),
-		pygame.mixer.music.play(),
+		pygame.mixer.music.play(start=0.55),
 	elif sound == 'c_octave':
 		pygame.mixer.music.load(SOUND_TONE_C_OCTAVE),
-		pygame.mixer.music.play(),
+		pygame.mixer.music.play(start=0.55),
 	
 
 class StopWatch(Frame):
@@ -169,7 +169,7 @@ class StopWatch(Frame):
 			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			self._update()
 			self._running = 1
-			playSound('lap')
+			#playSound('lap')
     
 	def Stop(self):
 		""" Stop the stopwatch, ignore if stopped. """
@@ -324,9 +324,9 @@ def RaceLights():
 	
 	for i in range(len(coords)):
 		time.sleep(1)
+		playSound("c")
 		lights[i].config(image = photo2)
 		lights[i].image = photo2
-		playSound("c")
 		root.tk.update()
 		
 	for i in range(len(coords)):
@@ -334,12 +334,12 @@ def RaceLights():
 		lights[i].image = photo3
 	
 	time.sleep(1)
+	playSound("c_octave")
 	root.tk.update()
 	
 	lo = Thread(target=LightsOut, args=([lights]))
 	lo.start()
 	
-	playSound("c_octave")
 	StartRace()
 	
 def LightsOut(lights):

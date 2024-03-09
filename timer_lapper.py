@@ -18,6 +18,8 @@ SOUND_START = 'sounds/startende_race_autos.ogg'
 SOUND_LAP = 'sounds/Doppler-4.ogg'
 SOUND_FINISH = 'sounds/finished.ogg'
 SOUND_REVVING = 'sounds/revving.ogg'
+SOUND_TONE_C = 'sounds/Tone.c.ogg'
+SOUND_TONE_C_OCTAVE = 'sounds/Tone.c_octave.ogg'
 DEFAULT_RACE_LAPS = 3
 IS_TIMETRIAL = FALSE
 TIMETRIAL_BTN_COLOR = '#a1aeb4'
@@ -35,7 +37,7 @@ def playSound(sound):
 		pygame.mixer.music.load(SOUND_START),
 		pygame.mixer.music.play(start=1.65),
 	elif sound == 'lap':
-		pygame.mixer.music.set_volume(0.3),
+		#pygame.mixer.music.set_volume(0.3),
 		pygame.mixer.music.load(SOUND_LAP),
 		pygame.mixer.music.play(),
 	elif sound == 'finish':	
@@ -43,6 +45,12 @@ def playSound(sound):
 		pygame.mixer.music.play(),
 	elif sound == 'rev':
 		pygame.mixer.music.load(SOUND_REVVING),
+		pygame.mixer.music.play(),
+	elif sound == 'c':
+		pygame.mixer.music.load(SOUND_TONE_C),
+		pygame.mixer.music.play(),
+	elif sound == 'c_octave':
+		pygame.mixer.music.load(SOUND_TONE_C_OCTAVE),
 		pygame.mixer.music.play(),
 	
 
@@ -161,7 +169,7 @@ class StopWatch(Frame):
 			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			self._update()
 			self._running = 1
-			playSound('start')  
+			playSound('lap')
     
 	def Stop(self):
 		""" Stop the stopwatch, ignore if stopped. """
@@ -187,7 +195,6 @@ class StopWatch(Frame):
 		self.spt.config(fg=colFg1)
 		self.best.config(fg=colFg1)
 		self.bestTime = 0
-		playSound('rev')   
 
 		
 	def Finish(self):
@@ -203,9 +210,11 @@ class StopWatch(Frame):
 			
 		if (self._running):
 			self.laps.append([self._setLapTime(tempo),float("{0:.3f}".format(tempo))])
+			self._start = time.time()
 			self.m.insert(END, self.laps[-1][0])
 			self.m.yview_moveto(1)
 			self.lapmod2 = self._elapsedtime
+			
 			# Update lap counter       
 			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			split.start()
@@ -317,6 +326,7 @@ def RaceLights():
 		time.sleep(1)
 		lights[i].config(image = photo2)
 		lights[i].image = photo2
+		playSound("c")
 		root.tk.update()
 		
 	for i in range(len(coords)):
@@ -329,6 +339,7 @@ def RaceLights():
 	lo = Thread(target=LightsOut, args=([lights]))
 	lo.start()
 	
+	playSound("c_octave")
 	StartRace()
 	
 def LightsOut(lights):
@@ -438,7 +449,7 @@ def main():
 	btnFrm.config(bg=colBg1)
 	btnFrm.pack(side=BOTTOM, anchor=S, fill=X, padx=20)
 
-	Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 12'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
+	# Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 12'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
 	btn_toggle_time_trial = Button(btnFrm, text='Time trial', command=ToggleTimeTrial, font=('Roboto 24'), bg=TIMETRIAL_BTN_COLOR, fg=colBg1, highlightthickness=0, relief=RAISED)
 	btn_toggle_time_trial.pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
 	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)

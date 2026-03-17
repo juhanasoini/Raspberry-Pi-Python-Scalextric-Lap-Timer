@@ -1,6 +1,7 @@
 from tkinter import *
 from threading import Thread, Lock
 from queue import Queue, Empty
+from pathlib import Path
 # from PIL import Image
 import RPi.GPIO as GPIO
 import time
@@ -9,11 +10,20 @@ import pygame
 pygame.init()
 pygame.mixer.init()
 
+BASE_DIR = Path(__file__).resolve().parent
+SOUNDS_DIR = BASE_DIR / 'sounds'
 
-SOUND_START = pygame.mixer.Sound('sounds/startende_race_autos.mp3')
-SOUND_LAP = pygame.mixer.Sound('sounds/Doppler-4.wav')
-SOUND_FINISH = pygame.mixer.Sound('sounds/finish.mp3')
-SOUND_REVVING = pygame.mixer.Sound('sounds/revving.mp3')
+def load_sound(*candidates):
+	for candidate in candidates:
+		sound_path = SOUNDS_DIR / candidate
+		if sound_path.exists():
+			return pygame.mixer.Sound(str(sound_path))
+	raise FileNotFoundError('Could not find any sound file in {}: {}'.format(SOUNDS_DIR, ', '.join(candidates)))
+
+SOUND_START = load_sound('startende_race_autos.mp3')
+SOUND_LAP = load_sound('Doppler-4.wav')
+SOUND_FINISH = load_sound('finish.mp3', 'finished.mp3')
+SOUND_REVVING = load_sound('revving.mp3', 'start-revving.mp3')
 DEFAULT_RACE_LAPS = 3
 GPIO_BOUNCETIME_MS = 120
 MIN_LAP_TRIGGER_INTERVAL_SEC = 0.15

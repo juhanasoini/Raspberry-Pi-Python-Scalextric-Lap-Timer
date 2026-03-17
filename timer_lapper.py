@@ -21,7 +21,7 @@ def load_sound(*candidates):
 	raise FileNotFoundError('Could not find any sound file in {}: {}'.format(SOUNDS_DIR, ', '.join(candidates)))
 
 SOUND_START = load_sound('startende_race_autos.ogg')
-SOUND_LAP = load_sound('Doppler-4.wav')
+SOUND_LAP = load_sound('Doppler-4.ogg')
 SOUND_FINISH = load_sound('finish.mp3', 'finished.ogg')
 SOUND_REVVING = load_sound('revving.mp3', 'start-revving.ogg')
 DEFAULT_RACE_LAPS = 3

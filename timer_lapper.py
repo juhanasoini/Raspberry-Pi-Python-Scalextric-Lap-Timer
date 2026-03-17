@@ -154,11 +154,13 @@ class StopWatch(Frame):
 			self._running = 1
 			pygame.mixer.Sound.play(SOUND_START)    
     
-	def Stop(self):
+	def Stop(self, event_time=None):
 		""" Stop the stopwatch, ignore if stopped. """
 		if self._running:
-			self.after_cancel(self._timer)            
-			self._elapsedtime = time.time() - self._start    
+			self.after_cancel(self._timer)
+			if event_time is None:
+				event_time = time.time()
+			self._elapsedtime = event_time - self._start
 			self._setTime(self._elapsedtime)
 			self._running = 0
 
@@ -180,18 +182,20 @@ class StopWatch(Frame):
 		pygame.mixer.Sound.play(SOUND_REVVING)    
 
 		
-	def Finish(self):
+	def Finish(self, event_time=None):
 		""" Finish race for this lane """
-		self.Lap()
-		self.Stop()
+		self.Lap(event_time=event_time)
+		self.Stop(event_time=event_time)
 		td = Thread(target=playBuzz, args=())
 		td.start()
 		pygame.mixer.Sound.play(SOUND_FINISH)    
 
-	def Lap(self):
+	def Lap(self, event_time=None):
 		'''Makes a lap, only if started'''
 		if (self._running):
-			current_elapsed = time.time() - self._start
+			if event_time is None:
+				event_time = time.time()
+			current_elapsed = event_time - self._start
 			self._elapsedtime = current_elapsed
 			tempo = current_elapsed - self.lapmod2
 			if tempo <= 0:

@@ -20,10 +20,10 @@ def load_sound(*candidates):
 			return pygame.mixer.Sound(str(sound_path))
 	raise FileNotFoundError('Could not find any sound file in {}: {}'.format(SOUNDS_DIR, ', '.join(candidates)))
 
-SOUND_START = load_sound('startende_race_autos.mp3')
+SOUND_START = load_sound('startende_race_autos.ogg')
 SOUND_LAP = load_sound('Doppler-4.wav')
-SOUND_FINISH = load_sound('finish.mp3', 'finished.mp3')
-SOUND_REVVING = load_sound('revving.mp3', 'start-revving.mp3')
+SOUND_FINISH = load_sound('finish.mp3', 'finished.ogg')
+SOUND_REVVING = load_sound('revving.mp3', 'start-revving.ogg')
 DEFAULT_RACE_LAPS = 3
 GPIO_BOUNCETIME_MS = 120
 MIN_LAP_TRIGGER_INTERVAL_SEC = 0.15

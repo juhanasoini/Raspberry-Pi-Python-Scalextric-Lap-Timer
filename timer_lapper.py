@@ -255,11 +255,13 @@ def triggerLap(channel):
 			incrementDebugStat('enqueued_lane2')
 
 def processLapEvents():
+	processed_any = False
 	while True:
 		try:
 			channel, event_time = lap_event_queue.get_nowait()
 		except Empty:
 			break
+		processed_any = True
 		if (channel == pins[0]):
 			if DEBUG_COUNTER_ENABLED:
 				incrementDebugStat('processed_lane1')
@@ -278,7 +280,8 @@ def processLapEvents():
 					incrementDebugStat('accepted_lane2')
 				else:
 					incrementDebugStat('ignored_interval_lane2')
-	root.tk.after(5, processLapEvents)
+	delay_ms = 5 if processed_any else 50
+	root.tk.after(delay_ms, processLapEvents)
 
 def incrementDebugStat(key, amount=1):
 	with debug_stats_lock:

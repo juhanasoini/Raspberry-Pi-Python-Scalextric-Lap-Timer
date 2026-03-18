@@ -1,5 +1,7 @@
 from tkinter import *
-from threading import Thread
+from threading import Thread, Lock
+from queue import Queue, Empty
+from pathlib import Path
 # from PIL import Image
 import RPi.GPIO as GPIO
 import time
@@ -8,12 +10,25 @@ import pygame
 pygame.init()
 pygame.mixer.init()
 
+BASE_DIR = Path(__file__).resolve().parent
+SOUNDS_DIR = BASE_DIR / 'sounds'
 
-SOUND_START = pygame.mixer.Sound('sounds/startende_race_autos.mp3')
-SOUND_LAP = pygame.mixer.Sound('sounds/Doppler-4.wav')
-SOUND_FINISH = pygame.mixer.Sound('sounds/finish.mp3')
-SOUND_REVVING = pygame.mixer.Sound('sounds/revving.mp3')
+def load_sound(*candidates):
+	for candidate in candidates:
+		sound_path = SOUNDS_DIR / candidate
+		if sound_path.exists():
+			return pygame.mixer.Sound(str(sound_path))
+	raise FileNotFoundError('Could not find any sound file in {}: {}'.format(SOUNDS_DIR, ', '.join(candidates)))
+
+SOUND_START = load_sound('startende_race_autos.ogg')
+SOUND_LAP = load_sound('Doppler-4.ogg')
+SOUND_FINISH = load_sound('finish.mp3', 'finished.ogg')
+SOUND_REVVING = load_sound('revving.mp3', 'start-revving.ogg')
 DEFAULT_RACE_LAPS = 3
+GPIO_BOUNCETIME_MS = 120
+MIN_LAP_TRIGGER_INTERVAL_SEC = 0.15
+DEBUG_COUNTER_ENABLED = True
+DEBUG_COUNTER_UPDATE_MS = 200
 
 class StopWatch(Frame):
 	""" Implements a stop watch frame widget. """                                                                
@@ -34,13 +49,30 @@ class StopWatch(Frame):
 		self.makeWidgets()
 		self.laps = []
 		self.lapmod2 = 0
+		self._last_trigger_time = 0.0
 		self.today = time.strftime("%d %b %Y %H-%M-%S", time.localtime())
 	
-	def gpioTrigger(self):
+	def gpioTrigger(self, event_time=None):
+		# Use a monotonic clock for debounce timing to avoid issues if the
+		# system wall clock is adjusted (e.g., via NTP or manual changes).
+		if event_time is None:
+			event_time = time.monotonic()
+		interval = event_time - self._last_trigger_time
+		# Guard against non-monotonic timestamps (e.g., if event_time was
+		# derived from a wall clock and moved backwards). In that case, reset
+		# the last trigger time and treat the interval as zero so we don't
+		# erroneously extend the debounce period.
+		if interval < 0:
+			self._last_trigger_time = event_time
+			interval = 0.0
+		if interval < MIN_LAP_TRIGGER_INTERVAL_SEC:
+			return False
+		self._last_trigger_time = event_time
 		if (len(self.laps)+1 == int(LapRace.get())): # Finish Race if last lap
 			self.Finish()
 		else:
 			self.Lap()
+		return True
 
 	def makeWidgets(self):		
 		l2 = Label(self, textvariable=self.lapstr)
@@ -110,11 +142,17 @@ class StopWatch(Frame):
 			self.bestTime = elap
 			self.bestLap.set('Best: '+str(float("{0:.3f}".format(elap))))
 			self.best.config(fg=colPurple)
-			for i in range(3):
-				time.sleep(0.3)
-				self.best.config(fg=colBg2)
-				time.sleep(0.3)
-				self.best.config(fg=colPurple)
+			self._blinkBest(6)
+
+	def _blinkBest(self, remaining_toggles):
+		if remaining_toggles <= 0:
+			self.best.config(fg=colPurple)
+			return
+		if self.best.cget('fg') == colPurple:
+			self.best.config(fg=colBg2)
+		else:
+			self.best.config(fg=colPurple)
+		self.after(300, self._blinkBest, remaining_toggles - 1)
 			
 
 	def Start(self):                                                     
@@ -126,11 +164,13 @@ class StopWatch(Frame):
 			self._running = 1
 			pygame.mixer.Sound.play(SOUND_START)    
     
-	def Stop(self):
+	def Stop(self, event_time=None):
 		""" Stop the stopwatch, ignore if stopped. """
 		if self._running:
-			self.after_cancel(self._timer)            
-			self._elapsedtime = time.time() - self._start    
+			self.after_cancel(self._timer)
+			if event_time is None:
+				event_time = time.time()
+			self._elapsedtime = event_time - self._start
 			self._setTime(self._elapsedtime)
 			self._running = 0
 
@@ -138,6 +178,7 @@ class StopWatch(Frame):
 		""" Reset the stopwatch. """
 		self._start = time.time()
 		self._elapsedtime = 0.0
+		self._last_trigger_time = 0.0
 		self.laps = []
 		self.m.delete(0,END)
 		self.lapmod2 = self._elapsedtime
@@ -151,28 +192,32 @@ class StopWatch(Frame):
 		pygame.mixer.Sound.play(SOUND_REVVING)    
 
 		
-	def Finish(self):
+	def Finish(self, event_time=None):
 		""" Finish race for this lane """
-		self.Lap()
-		self.Stop()
+		self.Lap(event_time=event_time)
+		self.Stop(event_time=event_time)
 		td = Thread(target=playBuzz, args=())
 		td.start()
 		pygame.mixer.Sound.play(SOUND_FINISH)    
 
-	def Lap(self):
+	def Lap(self, event_time=None):
 		'''Makes a lap, only if started'''
-		split = Thread(target=splitTimes, args=())
-		tempo = self._elapsedtime - self.lapmod2
 		if (self._running):
+			if event_time is None:
+				event_time = time.time()
+			current_elapsed = event_time - self._start
+			self._elapsedtime = current_elapsed
+			tempo = current_elapsed - self.lapmod2
+			if tempo <= 0:
+				return
 			self.laps.append([self._setLapTime(tempo),float("{0:.3f}".format(tempo))])
 			self.m.insert(END, self.laps[-1][0])
 			self.m.yview_moveto(1)
-			self.lapmod2 = self._elapsedtime
+			self.lapmod2 = current_elapsed
 			# Update lap counter       
 			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
-			split.start()
-			bestCheck = Thread(target=self._bestLap, args=(float("{0:.3f}".format(tempo)),))
-			bestCheck.start()
+			splitTimes()
+			self._bestLap(float("{0:.3f}".format(tempo)))
 			pygame.mixer.Sound.play(SOUND_LAP)    
 	
 class raceWidgets(Frame):
@@ -212,10 +257,68 @@ class Fullscreen_Window:
 					
 		
 def triggerLap(channel):
-	if ((GPIO.input(channel)) and (channel == pins[0])):
-		sw.gpioTrigger()
-	elif ((GPIO.input(channel)) and (channel == pins[1])):
-		sw2.gpioTrigger()
+	lap_event_queue.put((channel, time.time()))
+	if DEBUG_COUNTER_ENABLED:
+		if channel == pins[0]:
+			incrementDebugStat('enqueued_lane1')
+		elif channel == pins[1]:
+			incrementDebugStat('enqueued_lane2')
+
+def processLapEvents():
+	processed_any = False
+	while True:
+		try:
+			channel, event_time = lap_event_queue.get_nowait()
+		except Empty:
+			break
+		processed_any = True
+		if (channel == pins[0]):
+			if DEBUG_COUNTER_ENABLED:
+				incrementDebugStat('processed_lane1')
+			registered = sw.gpioTrigger(event_time)
+			if DEBUG_COUNTER_ENABLED:
+				if registered:
+					incrementDebugStat('accepted_lane1')
+				else:
+					incrementDebugStat('ignored_interval_lane1')
+		elif (channel == pins[1]):
+			if DEBUG_COUNTER_ENABLED:
+				incrementDebugStat('processed_lane2')
+			registered = sw2.gpioTrigger(event_time)
+			if DEBUG_COUNTER_ENABLED:
+				if registered:
+					incrementDebugStat('accepted_lane2')
+				else:
+					incrementDebugStat('ignored_interval_lane2')
+	delay_ms = 5 if processed_any else 50
+	root.tk.after(delay_ms, processLapEvents)
+
+def incrementDebugStat(key, amount=1):
+	with debug_stats_lock:
+		debug_stats[key] += amount
+
+def getDebugSnapshot():
+	with debug_stats_lock:
+		return dict(debug_stats)
+
+def updateDebugOverlay():
+	if not DEBUG_COUNTER_ENABLED:
+		return
+	stats = getDebugSnapshot()
+	debug_text = (
+		'GPIO Debug\n'
+		'Q L1/L2: {}/{}\n'
+		'P L1/L2: {}/{}\n'
+		'A L1/L2: {}/{}\n'
+		'I L1/L2: {}/{}'
+	).format(
+		stats['enqueued_lane1'], stats['enqueued_lane2'],
+		stats['processed_lane1'], stats['processed_lane2'],
+		stats['accepted_lane1'], stats['accepted_lane2'],
+		stats['ignored_interval_lane1'], stats['ignored_interval_lane2']
+	)
+	debug_label.config(text=debug_text)
+	root.tk.after(DEBUG_COUNTER_UPDATE_MS, updateDebugOverlay)
 	
 def StartRace():
 	sw.Start()
@@ -262,13 +365,11 @@ def RaceLights():
 	time.sleep(1)
 	root.tk.update()
 	
-	lo = Thread(target=LightsOut, args=([lights]))
-	lo.start()
+	root.tk.after(1000, LightsOut, lights)
 	
 	StartRace()
 	
 def LightsOut(lights):
-	time.sleep(1)
 	for i in range(5):
 		lights[i].destroy()
 	lights[5].destroy()
@@ -373,7 +474,7 @@ def splitTimes():
 		
 				
 def main():
-	global root, sw, sw2, inputID, pins, LapRace, pwm, colBg1, colBg2, colFg1, colFg2, colGreen, colRed, colPurple, colScroll
+	global root, sw, sw2, inputID, pins, LapRace, pwm, colBg1, colBg2, colFg1, colFg2, colGreen, colRed, colPurple, colScroll, lap_event_queue, debug_stats, debug_stats_lock, debug_label
 	colBg1 = '#04080c'
 	colBg2 = '#101e28'
 	colFg1 = '#a1aeb4'
@@ -383,6 +484,18 @@ def main():
 	colPurple = '#e051d4'
 	colScroll = '#273a46'	
 	pins = [21,23,18] # lane1, lane2, buzzer
+	lap_event_queue = Queue()
+	debug_stats_lock = Lock()
+	debug_stats = {
+		'enqueued_lane1': 0,
+		'enqueued_lane2': 0,
+		'processed_lane1': 0,
+		'processed_lane2': 0,
+		'accepted_lane1': 0,
+		'accepted_lane2': 0,
+		'ignored_interval_lane1': 0,
+		'ignored_interval_lane2': 0,
+	}
 	
 	GPIO.setmode(GPIO.BCM)
 	
@@ -403,6 +516,11 @@ def main():
 	btnFrm.config(bg=colBg1)
 	btnFrm.pack(side=BOTTOM, anchor=S, fill=X, padx=20)
 
+	if DEBUG_COUNTER_ENABLED:
+		debug_label = Label(root.tk, justify=LEFT, anchor=NW, font=('Courier 12'), bg=colBg1, fg=colFg1)
+		debug_label.place(x=20, y=20)
+		updateDebugOverlay()
+
 	Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
 	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	Button(btnFrm, text='Stop', command=StopRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5) 
@@ -413,9 +531,10 @@ def main():
 	raceSetup.pack(side=BOTTOM, anchor=S, fill=X, pady=20)
 	
 	GPIO.setup(pins[0], GPIO.IN)
-	GPIO.add_event_detect(pins[0], GPIO.RISING, callback=triggerLap, bouncetime=1000)
+	GPIO.add_event_detect(pins[0], GPIO.RISING, callback=triggerLap, bouncetime=GPIO_BOUNCETIME_MS)
 	GPIO.setup(pins[1], GPIO.IN)
-	GPIO.add_event_detect(pins[1], GPIO.RISING, callback=triggerLap, bouncetime=1000) 
+	GPIO.add_event_detect(pins[1], GPIO.RISING, callback=triggerLap, bouncetime=GPIO_BOUNCETIME_MS)
+	root.tk.after(5, processLapEvents)
 
 	try:
 		root.tk.mainloop()

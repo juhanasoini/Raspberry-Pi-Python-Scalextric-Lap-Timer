@@ -53,9 +53,19 @@ class StopWatch(Frame):
 		self.today = time.strftime("%d %b %Y %H-%M-%S", time.localtime())
 	
 	def gpioTrigger(self, event_time=None):
+		# Use a monotonic clock for debounce timing to avoid issues if the
+		# system wall clock is adjusted (e.g., via NTP or manual changes).
 		if event_time is None:
-			event_time = time.time()
-		if (event_time - self._last_trigger_time) < MIN_LAP_TRIGGER_INTERVAL_SEC:
+			event_time = time.monotonic()
+		interval = event_time - self._last_trigger_time
+		# Guard against non-monotonic timestamps (e.g., if event_time was
+		# derived from a wall clock and moved backwards). In that case, reset
+		# the last trigger time and treat the interval as zero so we don't
+		# erroneously extend the debounce period.
+		if interval < 0:
+			self._last_trigger_time = event_time
+			interval = 0.0
+		if interval < MIN_LAP_TRIGGER_INTERVAL_SEC:
 			return False
 		self._last_trigger_time = event_time
 		if (len(self.laps)+1 == int(LapRace.get())): # Finish Race if last lap

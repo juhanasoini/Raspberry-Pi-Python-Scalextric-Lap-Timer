@@ -38,7 +38,7 @@ SOUND_LAP = load_sound('Doppler-4.ogg')
 SOUND_FINISH = load_sound('finish.mp3', 'finished.ogg')
 SOUND_REVVING = load_sound('revving.mp3', 'start-revving.ogg')
 SOUND_BEEP_RED = generate_tone(600, 200, volume=0.4)
-SOUND_BEEP_GREEN = generate_tone(1000, 300, volume=0.5)
+SOUND_BEEP_GREEN = generate_tone(1000, 800, volume=0.5)
 DEFAULT_RACE_LAPS = 3
 LIGHTS_INTERVAL_SEC = 0.5
 GPIO_BOUNCETIME_MS = 120
@@ -372,18 +372,18 @@ def RaceLights():
 	
 	for i in range(3):
 		time.sleep(LIGHTS_INTERVAL_SEC)
+		pygame.mixer.Sound.play(SOUND_BEEP_RED)
 		lights[i].config(image = photo2)
 		lights[i].image = photo2
 		root.tk.update()
-		pygame.mixer.Sound.play(SOUND_BEEP_RED)
 		
 	for i in range(3):
 		lights[i].config(image = photo3)
 		lights[i].image = photo3
 	
 	time.sleep(LIGHTS_INTERVAL_SEC)
-	root.tk.update()
 	pygame.mixer.Sound.play(SOUND_BEEP_GREEN)
+	root.tk.update()
 	
 	root.tk.after(1000, LightsOut, lights)
 	
@@ -545,7 +545,7 @@ def main():
 	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	Button(btnFrm, text='Stop', command=StopRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5) 
 	Button(btnFrm, text='Start', command=StartRace, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
-	Button(btnFrm, text='Lights', command=RaceLights, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
+	Button(btnFrm, text='Lights', command=RaceLights, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT, pady=25).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 
 	raceSetup = raceWidgets(root.tk)
 	raceSetup.pack(side=BOTTOM, anchor=S, fill=X, pady=20)

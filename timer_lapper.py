@@ -345,6 +345,7 @@ def StopRace():
 	sw2.Stop()
 	
 def ResetRace():
+	StopRace()
 	sw.Reset()
 	sw2.Reset()
 	

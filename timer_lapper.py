@@ -5,6 +5,8 @@ from pathlib import Path
 # from PIL import Image
 import RPi.GPIO as GPIO
 import time
+import struct
+import math
 import pygame
 
 pygame.init()
@@ -20,11 +22,25 @@ def load_sound(*candidates):
 			return pygame.mixer.Sound(str(sound_path))
 	raise FileNotFoundError('Could not find any sound file in {}: {}'.format(SOUNDS_DIR, ', '.join(candidates)))
 
+def generate_tone(frequency, duration_ms, volume=0.5):
+	sample_rate = 44100
+	n_samples = int(sample_rate * duration_ms / 1000)
+	buf = bytes()
+	for i in range(n_samples):
+		t = float(i) / sample_rate
+		value = int(volume * 32767 * math.sin(2 * math.pi * frequency * t))
+		buf += struct.pack('<h', value)
+	sound = pygame.mixer.Sound(buffer=buf)
+	return sound
+
 SOUND_START = load_sound('startende_race_autos.ogg')
 SOUND_LAP = load_sound('Doppler-4.ogg')
 SOUND_FINISH = load_sound('finish.mp3', 'finished.ogg')
 SOUND_REVVING = load_sound('revving.mp3', 'start-revving.ogg')
+SOUND_BEEP_RED = generate_tone(600, 200, volume=0.4)
+SOUND_BEEP_GREEN = generate_tone(1000, 300, volume=0.5)
 DEFAULT_RACE_LAPS = 3
+LIGHTS_INTERVAL_SEC = 0.5
 GPIO_BOUNCETIME_MS = 120
 MIN_LAP_TRIGGER_INTERVAL_SEC = 0.15
 DEBUG_COUNTER_ENABLED = True
@@ -101,8 +117,8 @@ class StopWatch(Frame):
 		Button(frm2, text='Lap', command=self.Lap, font=('Roboto 24'), bg=colBg1, fg=colFg1, highlightthickness=1, highlightbackground=colFg1, relief=FLAT).pack(side=BOTTOM, fill=X, expand=1, padx=0, pady=10)
 		
 		scrollbar = Scrollbar(frm2, orient=VERTICAL, bg=colScroll, highlightthickness=0, relief=FLAT, troughcolor=colBg1, bd=0 )
-		self.m = Listbox(frm2,selectmode=EXTENDED, height = 10, yscrollcommand=scrollbar.set)
-		self.m.config(bd='0', fg=colFg1, bg=colBg1, highlightthickness=0, font=('Courier 24'))
+		self.m = Listbox(frm2,selectmode=EXTENDED, height = 6, yscrollcommand=scrollbar.set)
+		self.m.config(bd='0', fg=colFg1, bg=colBg1, highlightthickness=0, font=('Courier 36'))
 		self.m.pack(side=LEFT, fill=BOTH, expand=1, pady=0, padx=0)
 		scrollbar.config(command=self.m.yview)
 		scrollbar.pack(side=RIGHT, fill=Y)
@@ -179,7 +195,7 @@ class StopWatch(Frame):
 		self.spt.config(fg=colFg1)
 		self.best.config(fg=colFg1)
 		self.bestTime = 0
-		pygame.mixer.Sound.play(SOUND_REVVING)    
+		# pygame.mixer.Sound.play(SOUND_REVVING)    
 
 		
 	def Finish(self, event_time=None):
@@ -323,16 +339,18 @@ def ResetRace():
 	sw2.Reset()
 	
 def RaceLights():
+	StopRace()
+	ResetRace()
 	photo = PhotoImage(file="imgs/light_off_hd.png")
 	photo2 = PhotoImage(file="imgs/light_red_hd.png")
 	photo3 = PhotoImage(file="imgs/light_green_hd.png")
 	lights = []
-	coords = [[370,240],[610,240],[850,240],[1090,240],[1330,240]]
+	coords = [[720,240],[960,240],[1200,240]]
 
 	cv = Canvas(root.tk, width=1920, height=1080, bg=colBg1, highlightthickness=0)
 	cv.place(x=0, y=0)
 
-	for i in range(5):
+	for i in range(3):
 		lights.append(Label(root.tk, image=photo, bg=colBg1))
 		lights[i].image = photo
 		lights[i].place(x=coords[i][0], y=coords[i][1])
@@ -340,29 +358,31 @@ def RaceLights():
 	lights.append(cv)
 	
 	root.tk.update()
-	time.sleep(1)
+	time.sleep(0.5)
 	
-	for i in range(5):
-		time.sleep(1)
+	for i in range(3):
+		time.sleep(LIGHTS_INTERVAL_SEC)
 		lights[i].config(image = photo2)
 		lights[i].image = photo2
 		root.tk.update()
+		pygame.mixer.Sound.play(SOUND_BEEP_RED)
 		
-	for i in range(5):
+	for i in range(3):
 		lights[i].config(image = photo3)
 		lights[i].image = photo3
 	
-	time.sleep(1)
+	time.sleep(LIGHTS_INTERVAL_SEC)
 	root.tk.update()
+	pygame.mixer.Sound.play(SOUND_BEEP_GREEN)
 	
 	root.tk.after(1000, LightsOut, lights)
 	
 	StartRace()
 	
 def LightsOut(lights):
-	for i in range(5):
+	for i in range(3):
 		lights[i].destroy()
-	lights[5].destroy()
+	lights[3].destroy()
 	root.tk.update()
 		
 def playBuzz():

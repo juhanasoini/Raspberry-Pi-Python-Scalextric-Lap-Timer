@@ -43,6 +43,7 @@ DEFAULT_RACE_LAPS = 3
 LIGHTS_INTERVAL_SEC = 0.5
 GPIO_BOUNCETIME_MS = 120
 MIN_LAP_TRIGGER_INTERVAL_SEC = 0.15
+MIN_LAP_TIME_SEC = 1.0
 DEBUG_COUNTER_ENABLED = True
 DEBUG_COUNTER_UPDATE_MS = 200
 
@@ -84,7 +85,12 @@ class StopWatch(Frame):
 		if interval < MIN_LAP_TRIGGER_INTERVAL_SEC:
 			return False
 		self._last_trigger_time = event_time
-		if (len(self.laps)+1 == int(LapRace.get())): # Finish Race if last lap
+		if time_trial_mode:
+			if not self._running:
+				self.Start(silent=True)
+			else:
+				self.Lap()
+		elif (len(self.laps)+1 == int(LapRace.get())): # Finish Race if last lap
 			self.Finish()
 		else:
 			self.Lap()
@@ -171,14 +177,18 @@ class StopWatch(Frame):
 		self.after(300, self._blinkBest, remaining_toggles - 1)
 			
 
-	def Start(self):                                                     
+	def Start(self, silent=False):                                                     
 		""" Start the stopwatch, ignore if running. """
 		if not self._running:            
 			self._start = time.time() - self._elapsedtime
-			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
+			if time_trial_mode:
+				self.lapstr.set('Lap: 0')
+			else:
+				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			self._update()
 			self._running = 1
-			pygame.mixer.Sound.play(SOUND_START)    
+			if not silent:
+				pygame.mixer.Sound.play(SOUND_START)    
     
 	def Stop(self, event_time=None):
 		""" Stop the stopwatch, ignore if stopped. """
@@ -210,7 +220,8 @@ class StopWatch(Frame):
 		
 	def Finish(self, event_time=None):
 		""" Finish race for this lane """
-		self.Lap(event_time=event_time)
+		if not self.Lap(event_time=event_time):
+			return
 		self.Stop(event_time=event_time)
 		td = Thread(target=playBuzz, args=())
 		td.start()
@@ -224,17 +235,21 @@ class StopWatch(Frame):
 			current_elapsed = event_time - self._start
 			self._elapsedtime = current_elapsed
 			tempo = current_elapsed - self.lapmod2
-			if tempo <= 0:
-				return
+			if tempo < MIN_LAP_TIME_SEC:
+				return False
 			self.laps.append([self._setLapTime(tempo),float("{0:.3f}".format(tempo))])
 			self.m.insert(END, self.laps[-1][0])
 			self.m.yview_moveto(1)
 			self.lapmod2 = current_elapsed
 			# Update lap counter       
-			self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
+			if time_trial_mode:
+				self.lapstr.set('Lap: {}'.format(len(self.laps)))
+			else:
+				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			splitTimes()
 			self._bestLap(float("{0:.3f}".format(tempo)))
 			pygame.mixer.Sound.play(SOUND_LAP)    
+		return True
 	
 class raceWidgets(Frame):
 	def __init__(self, parent=None, **kw):        
@@ -348,7 +363,16 @@ def ResetRace():
 	StopRace()
 	sw.Reset()
 	sw2.Reset()
-	
+
+def ToggleTimeTrial():
+	global time_trial_mode
+	time_trial_mode = not time_trial_mode
+	ResetRace()
+	if time_trial_mode:
+		btn_time_trial.config(text='Time Trial \u25cf', bg=colPurple)
+	else:
+		btn_time_trial.config(text='Time Trial', bg=colFg1)
+
 def RaceLights():
 	StopRace()
 	ResetRace()
@@ -495,7 +519,7 @@ def splitTimes():
 		
 				
 def main():
-	global root, sw, sw2, inputID, pins, LapRace, pwm, colBg1, colBg2, colFg1, colFg2, colGreen, colRed, colPurple, colScroll, lap_event_queue, debug_stats, debug_stats_lock, debug_label
+	global root, sw, sw2, inputID, pins, LapRace, pwm, colBg1, colBg2, colFg1, colFg2, colGreen, colRed, colPurple, colScroll, lap_event_queue, debug_stats, debug_stats_lock, debug_label, time_trial_mode, btn_time_trial
 	colBg1 = '#04080c'
 	colBg2 = '#101e28'
 	colFg1 = '#a1aeb4'
@@ -517,6 +541,8 @@ def main():
 		'ignored_interval_lane1': 0,
 		'ignored_interval_lane2': 0,
 	}
+	
+	time_trial_mode = False
 	
 	GPIO.setmode(GPIO.BCM)
 	
@@ -544,7 +570,8 @@ def main():
 
 	Button(btnFrm, text='Quit', command=root.tk.quit, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=(5,72))
 	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
-	Button(btnFrm, text='Stop', command=StopRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5) 
+	btn_time_trial = Button(btnFrm, text='Time Trial', command=ToggleTimeTrial, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT)
+	btn_time_trial.pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	Button(btnFrm, text='Start', command=StartRace, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	Button(btnFrm, text='Lights', command=RaceLights, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT, pady=25).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 

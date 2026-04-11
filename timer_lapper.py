@@ -88,6 +88,7 @@ class StopWatch(Frame):
 		if time_trial_mode:
 			if not self._running:
 				self.Start(silent=True)
+				pygame.mixer.Sound.play(SOUND_LAP)
 			else:
 				self.Lap()
 		elif (len(self.laps)+1 == int(LapRace.get())): # Finish Race if last lap

@@ -8,6 +8,7 @@ import time
 import struct
 import math
 import pygame
+import pyttsx3
 
 pygame.init()
 pygame.mixer.init()
@@ -46,6 +47,38 @@ MIN_LAP_TRIGGER_INTERVAL_SEC = 0.15
 MIN_LAP_TIME_SEC = 1.0
 DEBUG_COUNTER_ENABLED = True
 DEBUG_COUNTER_UPDATE_MS = 200
+
+tts_queue = Queue()
+tts_enabled = False
+
+def _tts_worker():
+	engine = pyttsx3.init()
+	engine.setProperty('rate', 150)
+	while True:
+		text = tts_queue.get()
+		if text is None:
+			break
+		try:
+			engine.say(text)
+			engine.runAndWait()
+		except Exception:
+			pass
+
+_tts_thread = Thread(target=_tts_worker, daemon=True)
+_tts_thread.start()
+
+def speak(text):
+	if tts_enabled:
+		tts_queue.put(text)
+
+def format_lap_time_speech(seconds_float):
+	"""Format a lap time for speech, e.g. 3.452 -> '3 point 4 5 2'"""
+	whole = int(seconds_float)
+	frac = '{:.3f}'.format(seconds_float).split('.')[1]
+	digits = ' '.join(frac)
+	if whole == 0:
+		return 'point {}'.format(digits)
+	return '{} point {}'.format(whole, digits)
 
 class StopWatch(Frame):
 	""" Implements a stop watch frame widget. """                                                                
@@ -249,7 +282,9 @@ class StopWatch(Frame):
 				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
 			splitTimes()
 			self._bestLap(float("{0:.3f}".format(tempo)))
-			pygame.mixer.Sound.play(SOUND_LAP)    
+			pygame.mixer.Sound.play(SOUND_LAP)
+			if time_trial_mode:
+				speak(format_lap_time_speech(float("{0:.3f}".format(tempo))))
 		return True
 	
 class raceWidgets(Frame):
@@ -374,6 +409,14 @@ def ToggleTimeTrial():
 	else:
 		btn_time_trial.config(text='Time Trial', bg=colFg1)
 
+def ToggleTTS():
+	global tts_enabled
+	tts_enabled = not tts_enabled
+	if tts_enabled:
+		btn_tts.config(text='TTS \u25cf', bg=colPurple)
+	else:
+		btn_tts.config(text='TTS \U0001f508', bg=colFg1)
+
 def RaceLights():
 	StopRace()
 	ResetRace()
@@ -477,6 +520,8 @@ def splitTimes():
 		sw2.lapSplit.set('Split: +'+str(float("{0:.3f}".format(totalDiff))))
 		sw2.spt.config(fg=colRed)
 		sw2.l.config(fg=colRed)
+		if not time_trial_mode:
+			speak('Lane 1 in the lead')
 	elif (len(sw.laps) < len(sw2.laps)):  # Lane 2 in the lead
 		sameLaps = len(sw.laps)
 		extraLaps = len(sw2.laps) - len(sw.laps)
@@ -495,6 +540,8 @@ def splitTimes():
 		sw.lapSplit.set('Split: +'+str(float("{0:.3f}".format(totalDiff))))
 		sw.spt.config(fg=colRed)
 		sw.l.config(fg=colRed)
+		if not time_trial_mode:
+			speak('Lane 2 in the lead')
 	else:  # equal Laps - just need the total same difference
 		sameLaps = len(sw.laps)
 		sameArr = [sw2.laps[:sameLaps], sw.laps[:sameLaps]]
@@ -509,6 +556,8 @@ def splitTimes():
 			sw2.lapSplit.set('Split: -'+str(float("{0:.3f}".format(abs(totalDiff)))))
 			sw2.spt.config(fg=colGreen)
 			sw2.l.config(fg=colGreen)
+			if not time_trial_mode:
+				speak('Lane 2 in the lead')
 		else:
 			sw2.lapSplit.set('Split: +'+str(float("{0:.3f}".format(abs(totalDiff)))))
 			sw2.spt.config(fg=colRed)
@@ -516,11 +565,13 @@ def splitTimes():
 			sw.lapSplit.set('Split: -'+str(float("{0:.3f}".format(abs(totalDiff)))))
 			sw.spt.config(fg=colGreen)
 			sw.l.config(fg=colGreen)
+			if not time_trial_mode and totalDiff != 0:
+				speak('Lane 1 in the lead')
 				
 		
 				
 def main():
-	global root, sw, sw2, inputID, pins, LapRace, pwm, colBg1, colBg2, colFg1, colFg2, colGreen, colRed, colPurple, colScroll, lap_event_queue, debug_stats, debug_stats_lock, debug_label, time_trial_mode, btn_time_trial
+	global root, sw, sw2, inputID, pins, LapRace, pwm, colBg1, colBg2, colFg1, colFg2, colGreen, colRed, colPurple, colScroll, lap_event_queue, debug_stats, debug_stats_lock, debug_label, time_trial_mode, btn_time_trial, tts_enabled, btn_tts
 	colBg1 = '#04080c'
 	colBg2 = '#101e28'
 	colFg1 = '#a1aeb4'
@@ -544,6 +595,7 @@ def main():
 	}
 	
 	time_trial_mode = False
+	tts_enabled = False
 	
 	GPIO.setmode(GPIO.BCM)
 	
@@ -573,6 +625,8 @@ def main():
 	Button(btnFrm, text='Reset', command=ResetRace, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	btn_time_trial = Button(btnFrm, text='Time Trial', command=ToggleTimeTrial, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT)
 	btn_time_trial.pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
+	btn_tts = Button(btnFrm, text='TTS \U0001f508', command=ToggleTTS, font=('Roboto 24'), bg=colFg1, fg=colBg1, highlightthickness=0, relief=FLAT)
+	btn_tts.pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	Button(btnFrm, text='Start', command=StartRace, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 	Button(btnFrm, text='Lights', command=RaceLights, font=('Roboto 36 bold'), bg=colGreen, fg='white', highlightthickness=0, relief=FLAT, pady=25).pack(side=BOTTOM, anchor=S, fill=X, padx=10, pady=5)
 
@@ -588,6 +642,7 @@ def main():
 	try:
 		root.tk.mainloop()
 	finally:
+		tts_queue.put(None)
 		GPIO.cleanup()
 	
 

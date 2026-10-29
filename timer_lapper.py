@@ -8,7 +8,10 @@ import time
 import struct
 import math
 import pygame
-import pyttsx3
+try:
+	import pyttsx3
+except ImportError:
+	pyttsx3 = None
 
 pygame.init()
 pygame.mixer.init()

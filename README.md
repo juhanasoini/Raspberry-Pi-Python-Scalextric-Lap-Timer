@@ -21,5 +21,36 @@ It's early days, and I will be extending this dashboard further in the coming we
 * Scalextric Track
 * 2 Slot cars with Magnatraction (magnets on the chasis)
 
+## Text-to-Speech (TTS) Setup
+
+The dashboard can announce lap times and race positions out loud using text-to-speech. This is useful so you can keep your eyes on the track instead of the screen.
+
+**What it does:**
+* **Time Trial mode** — speaks the lap time after each lap (e.g. *"3 point 4 5 2"*)
+* **Race mode** — announces the leader after their laps and announces the winning lane when it finishes the race
+
+In Time Trial mode, each lane's **Lap** button can record a lap manually. In Race mode, laps are recorded by the track sensors.
+
+**Setup on the Raspberry Pi:**
+
+1. Install the system TTS engine (may already be installed on Raspberry Pi OS):
+   ```bash
+   sudo apt install -y espeak
+   ```
+
+2. Install the Python dependency:
+   ```bash
+   cd ~/Code/Raspberry-Pi-Python-Scalextric-Lap-Timer
+   .venv/bin/pip install pyttsx3
+   ```
+
+3. Test that audio works:
+   ```bash
+   .venv/bin/python -c "import pyttsx3; e = pyttsx3.init(); e.say('test'); e.runAndWait()"
+   ```
+   You should hear "test" through the Pi's audio output. If not, check your audio config with `raspi-config` → System Options → Audio, or adjust volume with `amixer`.
+
+**Usage:** Press the **TTS** button in the dashboard to toggle speech on or off. It is off by default. The button highlights purple when active.
+
 ## Raspberry Pi Fritzing diagram
 ![Fritzing](https://raw.githubusercontent.com/philm400/Raspberry-Pi-Python-Scalextric-Lap-Timer/master/docs/img/Scalextric-Reed-Swtichs_diagram.png?raw=true)

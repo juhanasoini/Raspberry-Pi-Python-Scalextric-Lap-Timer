@@ -53,14 +53,20 @@ DEBUG_COUNTER_UPDATE_MS = 200
 
 tts_queue = Queue()
 tts_enabled = False
+tts_lock = Lock()
+tts_generation = 0
 
 def _tts_worker():
 	engine = pyttsx3.init()
 	engine.setProperty('rate', 150)
 	while True:
-		text = tts_queue.get()
-		if text is None:
+		item = tts_queue.get()
+		if item is None:
 			break
+		generation, text = item
+		with tts_lock:
+			if not tts_enabled or generation != tts_generation:
+				continue
 		try:
 			engine.say(text)
 			engine.runAndWait()
@@ -71,12 +77,13 @@ _tts_thread = None
 
 def speak(text):
 	global _tts_thread
-	if not tts_enabled or pyttsx3 is None:
-		return
-	if _tts_thread is None or not _tts_thread.is_alive():
-		_tts_thread = Thread(target=_tts_worker, daemon=False)
-		_tts_thread.start()
-	tts_queue.put(text)
+	with tts_lock:
+		if not tts_enabled or pyttsx3 is None:
+			return
+		if _tts_thread is None or not _tts_thread.is_alive():
+			_tts_thread = Thread(target=_tts_worker, daemon=False)
+			_tts_thread.start()
+		tts_queue.put((tts_generation, text))
 
 def format_lap_time_speech(seconds_float):
 	"""Format a lap time for speech, e.g. 3.452 -> '3 point 4 5 2'"""
@@ -287,7 +294,7 @@ class StopWatch(Frame):
 				self.lapstr.set('Lap: {}'.format(len(self.laps)))
 			else:
 				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
-			splitTimes()
+			splitTimes(self)
 			self._bestLap(float("{0:.3f}".format(tempo)))
 			pygame.mixer.Sound.play(SOUND_LAP)
 			if time_trial_mode:
@@ -417,8 +424,16 @@ def ToggleTimeTrial():
 		btn_time_trial.config(text='Time Trial', bg=colFg1)
 
 def ToggleTTS():
-	global tts_enabled
-	tts_enabled = not tts_enabled
+	global tts_enabled, tts_generation
+	with tts_lock:
+		tts_enabled = not tts_enabled
+		if not tts_enabled:
+			tts_generation += 1
+			while True:
+				try:
+					tts_queue.get_nowait()
+				except Empty:
+					break
 	if tts_enabled:
 		btn_tts.config(text='TTS \u25cf', bg=colPurple)
 	else:
@@ -503,7 +518,7 @@ def playBuzz():
 	pwm.ChangeDutyCycle(100)
 	GPIO.setup(pins[2], GPIO.IN)
 	
-def splitTimes():
+def splitTimes(completed_lane):
 	c1 = 0
 	c2 = 0
 	sameDiff = 0
@@ -527,7 +542,7 @@ def splitTimes():
 		sw2.lapSplit.set('Split: +'+str(float("{0:.3f}".format(totalDiff))))
 		sw2.spt.config(fg=colRed)
 		sw2.l.config(fg=colRed)
-		if not time_trial_mode:
+		if not time_trial_mode and completed_lane is sw:
 			speak('Lane 1 in the lead')
 	elif (len(sw.laps) < len(sw2.laps)):  # Lane 2 in the lead
 		sameLaps = len(sw.laps)
@@ -547,7 +562,7 @@ def splitTimes():
 		sw.lapSplit.set('Split: +'+str(float("{0:.3f}".format(totalDiff))))
 		sw.spt.config(fg=colRed)
 		sw.l.config(fg=colRed)
-		if not time_trial_mode:
+		if not time_trial_mode and completed_lane is sw2:
 			speak('Lane 2 in the lead')
 	else:  # equal Laps - just need the total same difference
 		sameLaps = len(sw.laps)
@@ -563,7 +578,7 @@ def splitTimes():
 			sw2.lapSplit.set('Split: -'+str(float("{0:.3f}".format(abs(totalDiff)))))
 			sw2.spt.config(fg=colGreen)
 			sw2.l.config(fg=colGreen)
-			if not time_trial_mode:
+			if not time_trial_mode and completed_lane is sw2:
 				speak('Lane 2 in the lead')
 		else:
 			sw2.lapSplit.set('Split: +'+str(float("{0:.3f}".format(abs(totalDiff)))))
@@ -572,7 +587,7 @@ def splitTimes():
 			sw.lapSplit.set('Split: -'+str(float("{0:.3f}".format(abs(totalDiff)))))
 			sw.spt.config(fg=colGreen)
 			sw.l.config(fg=colGreen)
-			if not time_trial_mode and totalDiff != 0:
+			if not time_trial_mode and totalDiff != 0 and completed_lane is sw:
 				speak('Lane 1 in the lead')
 				
 		

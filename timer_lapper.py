@@ -67,12 +67,16 @@ def _tts_worker():
 		except Exception:
 			pass
 
-_tts_thread = Thread(target=_tts_worker, daemon=True)
-_tts_thread.start()
+_tts_thread = None
 
 def speak(text):
-	if tts_enabled:
-		tts_queue.put(text)
+	global _tts_thread
+	if not tts_enabled or pyttsx3 is None:
+		return
+	if _tts_thread is None or not _tts_thread.is_alive():
+		_tts_thread = Thread(target=_tts_worker, daemon=False)
+		_tts_thread.start()
+	tts_queue.put(text)
 
 def format_lap_time_speech(seconds_float):
 	"""Format a lap time for speech, e.g. 3.452 -> '3 point 4 5 2'"""

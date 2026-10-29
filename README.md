@@ -27,7 +27,9 @@ The dashboard can announce lap times and race positions out loud using text-to-s
 
 **What it does:**
 * **Time Trial mode** — speaks the lap time after each lap (e.g. *"3 point 4 5 2"*)
-* **Race mode** — announces *"Lane 1 in the lead"* or *"Lane 2 in the lead"* every time the leader completes a lap
+* **Race mode** — announces the leader after their laps and announces the winning lane when it finishes the race
+
+In Time Trial mode, each lane's **Lap** button can record a lap manually. In Race mode, laps are recorded by the track sensors.
 
 **Setup on the Raspberry Pi:**
 

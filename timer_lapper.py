@@ -50,6 +50,7 @@ MIN_LAP_TRIGGER_INTERVAL_SEC = 0.15
 MIN_LAP_TIME_SEC = 1.0
 DEBUG_COUNTER_ENABLED = True
 DEBUG_COUNTER_UPDATE_MS = 200
+race_winner = None
 
 tts_queue = Queue()
 tts_enabled = False
@@ -177,8 +178,7 @@ class StopWatch(Frame):
 		l3.config(fg=colFg1, bg=colBg1, font=('Roboto 16'))
 		l3.pack(fill=X, expand=NO, pady=(30,0), padx=0)
 		
-		Button(frm2, text='Finish Line', command=self.Finish, font=('Roboto 24'), bg=colBg1, fg=colFg1, highlightthickness=1, highlightbackground=colFg1, relief=FLAT).pack(side=BOTTOM, fill=X, expand=1, padx=0, pady=0)
-		Button(frm2, text='Lap', command=self.Lap, font=('Roboto 24'), bg=colBg1, fg=colFg1, highlightthickness=1, highlightbackground=colFg1, relief=FLAT).pack(side=BOTTOM, fill=X, expand=1, padx=0, pady=10)
+		self.lap_button = Button(frm2, text='Lap', command=self.Lap, font=('Roboto 24'), bg=colBg1, fg=colFg1, highlightthickness=1, highlightbackground=colFg1, relief=FLAT)
 		
 		scrollbar = Scrollbar(frm2, orient=VERTICAL, bg=colScroll, highlightthickness=0, relief=FLAT, troughcolor=colBg1, bd=0 )
 		self.m = Listbox(frm2,selectmode=EXTENDED, height = 6, yscrollcommand=scrollbar.set)
@@ -277,6 +277,7 @@ class StopWatch(Frame):
 
 	def Lap(self, event_time=None):
 		'''Makes a lap, only if started'''
+		global race_winner
 		if (self._running):
 			if event_time is None:
 				event_time = time.time()
@@ -294,12 +295,18 @@ class StopWatch(Frame):
 				self.lapstr.set('Lap: {}'.format(len(self.laps)))
 			else:
 				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), int(LapRace.get())))
-			splitTimes(self)
+			winning_lap = not time_trial_mode and race_winner is None and len(self.laps) == int(LapRace.get())
+			if winning_lap:
+				race_winner = self
+			splitTimes(self, announce_leader=not winning_lap)
 			self._bestLap(float("{0:.3f}".format(tempo)))
 			pygame.mixer.Sound.play(SOUND_LAP)
 			if time_trial_mode:
 				speak(format_lap_time_speech(float("{0:.3f}".format(tempo))))
-		return True
+			elif winning_lap:
+				speak('Lane {} wins'.format(1 if self is sw else 2))
+			return True
+		return False
 	
 class raceWidgets(Frame):
 	def __init__(self, parent=None, **kw):        
@@ -410,17 +417,23 @@ def StopRace():
 	sw2.Stop()
 	
 def ResetRace():
+	global race_winner
 	StopRace()
 	sw.Reset()
 	sw2.Reset()
+	race_winner = None
 
 def ToggleTimeTrial():
 	global time_trial_mode
 	time_trial_mode = not time_trial_mode
 	ResetRace()
 	if time_trial_mode:
+		sw.lap_button.pack(side=BOTTOM, fill=X, expand=1, padx=0, pady=10, before=sw.m)
+		sw2.lap_button.pack(side=BOTTOM, fill=X, expand=1, padx=0, pady=10, before=sw2.m)
 		btn_time_trial.config(text='Time Trial \u25cf', bg=colPurple)
 	else:
+		sw.lap_button.pack_forget()
+		sw2.lap_button.pack_forget()
 		btn_time_trial.config(text='Time Trial', bg=colFg1)
 
 def ToggleTTS():
@@ -518,7 +531,7 @@ def playBuzz():
 	pwm.ChangeDutyCycle(100)
 	GPIO.setup(pins[2], GPIO.IN)
 	
-def splitTimes(completed_lane):
+def splitTimes(completed_lane, announce_leader=True):
 	c1 = 0
 	c2 = 0
 	sameDiff = 0
@@ -542,7 +555,7 @@ def splitTimes(completed_lane):
 		sw2.lapSplit.set('Split: +'+str(float("{0:.3f}".format(totalDiff))))
 		sw2.spt.config(fg=colRed)
 		sw2.l.config(fg=colRed)
-		if not time_trial_mode and completed_lane is sw:
+		if announce_leader and not time_trial_mode and completed_lane is sw:
 			speak('Lane 1 in the lead')
 	elif (len(sw.laps) < len(sw2.laps)):  # Lane 2 in the lead
 		sameLaps = len(sw.laps)
@@ -562,7 +575,7 @@ def splitTimes(completed_lane):
 		sw.lapSplit.set('Split: +'+str(float("{0:.3f}".format(totalDiff))))
 		sw.spt.config(fg=colRed)
 		sw.l.config(fg=colRed)
-		if not time_trial_mode and completed_lane is sw2:
+		if announce_leader and not time_trial_mode and completed_lane is sw2:
 			speak('Lane 2 in the lead')
 	else:  # equal Laps - just need the total same difference
 		sameLaps = len(sw.laps)
@@ -578,7 +591,7 @@ def splitTimes(completed_lane):
 			sw2.lapSplit.set('Split: -'+str(float("{0:.3f}".format(abs(totalDiff)))))
 			sw2.spt.config(fg=colGreen)
 			sw2.l.config(fg=colGreen)
-			if not time_trial_mode and completed_lane is sw2:
+			if announce_leader and not time_trial_mode and completed_lane is sw2:
 				speak('Lane 2 in the lead')
 		else:
 			sw2.lapSplit.set('Split: +'+str(float("{0:.3f}".format(abs(totalDiff)))))
@@ -587,7 +600,7 @@ def splitTimes(completed_lane):
 			sw.lapSplit.set('Split: -'+str(float("{0:.3f}".format(abs(totalDiff)))))
 			sw.spt.config(fg=colGreen)
 			sw.l.config(fg=colGreen)
-			if not time_trial_mode and totalDiff != 0 and completed_lane is sw:
+			if announce_leader and not time_trial_mode and totalDiff != 0 and completed_lane is sw:
 				speak('Lane 1 in the lead')
 				
 		

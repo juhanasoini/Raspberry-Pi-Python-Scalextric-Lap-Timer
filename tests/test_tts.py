@@ -23,6 +23,7 @@ class TtsTests(unittest.TestCase):
         timer.colPurple = 'purple'
         timer.colFg1 = 'grey'
         timer.race_winner = None
+        timer.race_laps = 1
 
     def test_disable_discards_pending_and_reenable_accepts_new_speech(self):
         started = threading.Event()

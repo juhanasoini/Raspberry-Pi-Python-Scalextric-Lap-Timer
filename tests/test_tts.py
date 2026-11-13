@@ -19,6 +19,7 @@ class TtsTests(unittest.TestCase):
         timer.tts_enabled = True
         timer.tts_generation = 0
         timer._tts_thread = None
+        timer.tts_failed = False
         timer.btn_tts = MagicMock()
         timer.colPurple = 'purple'
         timer.colFg1 = 'grey'
@@ -45,6 +46,31 @@ class TtsTests(unittest.TestCase):
             timer._tts_thread.join(2)
         self.assertFalse(timer._tts_thread.is_alive())
         self.assertEqual(spoken, ['first', 'new'])
+
+    def test_engine_init_failure_disables_speech_once(self):
+        with patch.object(timer.pyttsx3, 'init', side_effect=RuntimeError('no espeak')) as init, \
+                patch('builtins.print'):
+            timer.speak('first')
+            timer._tts_thread.join(2)
+            self.assertFalse(timer._tts_thread.is_alive())
+            self.assertTrue(timer.tts_failed)
+            failed_thread = timer._tts_thread
+            timer.speak('second')
+            self.assertIs(timer._tts_thread, failed_thread)
+            init.assert_called_once()
+
+    def test_speech_error_does_not_stop_worker(self):
+        spoken = []
+        engine = MagicMock()
+        engine.say.side_effect = spoken.append
+        engine.runAndWait.side_effect = [RuntimeError('audio busy'), None]
+        with patch.object(timer.pyttsx3, 'init', return_value=engine), patch('builtins.print'):
+            timer.speak('first')
+            timer.speak('second')
+            timer.tts_queue.put(None)
+            timer._tts_thread.join(2)
+        self.assertFalse(timer._tts_thread.is_alive())
+        self.assertEqual(spoken, ['first', 'second'])
 
     def test_leader_announced_only_on_their_lap(self):
         def lane(times):

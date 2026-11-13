@@ -60,10 +60,18 @@ tts_queue = Queue()
 tts_enabled = False
 tts_lock = Lock()
 tts_generation = 0
+tts_failed = False
 
 def _tts_worker():
-	engine = pyttsx3.init()
-	engine.setProperty('rate', 150)
+	global tts_failed
+	try:
+		engine = pyttsx3.init()
+		engine.setProperty('rate', 150)
+	except Exception as ex:
+		print('TTS disabled, speech engine failed to start: {}'.format(ex))
+		with tts_lock:
+			tts_failed = True
+		return
 	while True:
 		item = tts_queue.get()
 		if item is None:
@@ -75,15 +83,15 @@ def _tts_worker():
 		try:
 			engine.say(text)
 			engine.runAndWait()
-		except Exception:
-			pass
+		except Exception as ex:
+			print('TTS error: {}'.format(ex))
 
 _tts_thread = None
 
 def speak(text):
 	global _tts_thread
 	with tts_lock:
-		if not tts_enabled or pyttsx3 is None:
+		if not tts_enabled or pyttsx3 is None or tts_failed:
 			return
 		if _tts_thread is None or not _tts_thread.is_alive():
 			_tts_thread = Thread(target=_tts_worker, daemon=False)

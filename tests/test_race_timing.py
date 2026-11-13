@@ -33,6 +33,16 @@ class RaceTimingTests(unittest.TestCase):
         self.assertTrue(timer.StopWatch.gpioTrigger(lane, 12))
         lane.Start.assert_called_once_with(silent=True, event_time=12)
 
+    def test_clock_shows_current_lap_in_time_trial_and_total_in_race(self):
+        for trial, expected in ((True, 3), (False, 8)):
+            with self.subTest(time_trial_mode=trial):
+                timer.time_trial_mode = trial
+                lane = SimpleNamespace(_start=0, lapmod2=5, _setTime=MagicMock(), after=MagicMock())
+                with patch.object(timer.time, 'monotonic', return_value=8):
+                    timer.StopWatch._update(lane)
+                lane._setTime.assert_called_once_with(expected)
+                self.assertEqual(lane._elapsedtime, 8)
+
     def test_invalid_laps_and_captured_count(self):
         timer.LapRace = MagicMock()
         with patch.object(timer.messagebox, 'showerror') as error:

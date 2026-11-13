@@ -510,7 +510,7 @@ def RaceLights():
 	lights = []
 	for x in (720, 960, 1200):
 		light = Label(root.tk, image=photos[0], bg=colBg1)
-		light.place(x=x, y=240)
+		light.place(x=x, y=240, anchor=N)
 		lights.append(light)
 		countdown_widgets.append(light)
 

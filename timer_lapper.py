@@ -197,9 +197,12 @@ class StopWatch(Frame):
 		scrollbar.pack(side=RIGHT, fill=Y)
 
 	def _update(self): 
-		""" Update the label with elapsed time. """
+		""" Update the label with elapsed time, or the current lap time in time trial mode. """
 		self._elapsedtime = time.monotonic() - self._start
-		self._setTime(self._elapsedtime)
+		if time_trial_mode:
+			self._setTime(self._elapsedtime - self.lapmod2)
+		else:
+			self._setTime(self._elapsedtime)
 		self._timer = self.after(25, self._update)
 
 	def _setTime(self, elap):

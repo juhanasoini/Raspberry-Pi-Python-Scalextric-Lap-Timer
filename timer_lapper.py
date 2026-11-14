@@ -252,7 +252,7 @@ class StopWatch(Frame):
 			self._start = (time.monotonic() if event_time is None else event_time) - self._elapsedtime
 			self._event_cutoff = time.monotonic() if event_time is None else event_time
 			if time_trial_mode:
-				self.lapstr.set('Lap: 0')
+				self.lapstr.set('Lap: {}'.format(len(self.laps) + 1))
 			else:
 				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), race_laps))
 			self._update()
@@ -318,7 +318,7 @@ class StopWatch(Frame):
 			self.lapmod2 = current_elapsed
 			# Update lap counter       
 			if time_trial_mode:
-				self.lapstr.set('Lap: {}'.format(len(self.laps)))
+				self.lapstr.set('Lap: {}'.format(len(self.laps) + 1))
 			else:
 				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), race_laps))
 			winning_lap = not time_trial_mode and race_winner is None and len(self.laps) == race_laps

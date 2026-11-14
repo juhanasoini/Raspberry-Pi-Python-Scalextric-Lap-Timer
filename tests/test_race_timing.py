@@ -34,6 +34,19 @@ class RaceTimingTests(unittest.TestCase):
         self.assertTrue(timer.StopWatch.gpioTrigger(lane, 12))
         lane.Start.assert_called_once_with(silent=True, event_time=12)
 
+    def test_time_trial_counter_shows_current_lap(self):
+        timer.time_trial_mode = True
+        lane = SimpleNamespace(_running=False, _elapsedtime=0, laps=[], lapmod2=0,
+                               lapstr=MagicMock(), _update=MagicMock(), m=MagicMock(),
+                               _setLapTime=str, _bestLap=MagicMock())
+        timer.StopWatch.Start(lane, silent=True, event_time=10)
+        lane.lapstr.set.assert_called_with('Lap: 1')
+        with patch.object(timer, 'speak'):
+            timer.StopWatch.Lap(lane, event_time=12)
+            lane.lapstr.set.assert_called_with('Lap: 2')
+            timer.StopWatch.Lap(lane, event_time=14)
+            lane.lapstr.set.assert_called_with('Lap: 3')
+
     def test_time_trial_only_monitors_first_lane_until_reset(self):
         timer.time_trial_mode = True
         def lane():

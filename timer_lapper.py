@@ -254,7 +254,7 @@ class StopWatch(Frame):
 			if time_trial_mode:
 				self.lapstr.set('Lap: {}'.format(len(self.laps) + 1))
 			else:
-				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), race_laps))
+				self.lapstr.set('Lap: {} / {}'.format(min(len(self.laps) + 1, race_laps), race_laps))
 			self._update()
 			self._running = 1
 			if not silent:
@@ -320,7 +320,7 @@ class StopWatch(Frame):
 			if time_trial_mode:
 				self.lapstr.set('Lap: {}'.format(len(self.laps) + 1))
 			else:
-				self.lapstr.set('Lap: {} / {}'.format(len(self.laps), race_laps))
+				self.lapstr.set('Lap: {} / {}'.format(min(len(self.laps) + 1, race_laps), race_laps))
 			winning_lap = not time_trial_mode and race_winner is None and len(self.laps) == race_laps
 			if winning_lap:
 				race_winner = self

@@ -47,6 +47,21 @@ class RaceTimingTests(unittest.TestCase):
             timer.StopWatch.Lap(lane, event_time=14)
             lane.lapstr.set.assert_called_with('Lap: 3')
 
+    def test_race_counter_shows_current_lap_and_stops_at_total(self):
+        timer.race_laps = 2
+        lane = SimpleNamespace(_running=False, _elapsedtime=0, laps=[], lapmod2=0,
+                               lapstr=MagicMock(), _update=MagicMock(), m=MagicMock(),
+                               _setLapTime=str, _bestLap=MagicMock())
+        timer.sw, timer.sw2 = lane, MagicMock()
+        timer.race_winner = None
+        timer.StopWatch.Start(lane, silent=True, event_time=10)
+        lane.lapstr.set.assert_called_with('Lap: 1 / 2')
+        with patch.object(timer, 'speak'), patch.object(timer, 'splitTimes'):
+            timer.StopWatch.Lap(lane, event_time=12)
+            lane.lapstr.set.assert_called_with('Lap: 2 / 2')
+            timer.StopWatch.Lap(lane, event_time=14)
+            lane.lapstr.set.assert_called_with('Lap: 2 / 2')
+
     def test_time_trial_only_monitors_first_lane_until_reset(self):
         timer.time_trial_mode = True
         def lane():

@@ -52,6 +52,7 @@ MIN_LAP_TIME_SEC = 1.0
 DEBUG_COUNTER_ENABLED = True
 DEBUG_COUNTER_UPDATE_MS = 200
 race_winner = None
+time_trial_lane = None
 race_laps = DEFAULT_RACE_LAPS
 countdown_job = None
 countdown_widgets = []
@@ -131,11 +132,14 @@ class StopWatch(Frame):
 		self.today = time.strftime("%d %b %Y %H-%M-%S", time.localtime())
 	
 	def gpioTrigger(self, event_time=None):
+		global time_trial_lane
 		# Use a monotonic clock for debounce timing to avoid issues if the
 		# system wall clock is adjusted (e.g., via NTP or manual changes).
 		if event_time is None:
 			event_time = time.monotonic()
 		if event_time < self._event_cutoff:
+			return False
+		if time_trial_mode and time_trial_lane is not None and time_trial_lane is not self:
 			return False
 		if time_trial_mode and not self._running and countdown_job is not None:
 			return False
@@ -144,6 +148,7 @@ class StopWatch(Frame):
 		self._last_trigger_time = event_time
 		if time_trial_mode:
 			if not self._running:
+				time_trial_lane = self
 				self.Start(silent=True, event_time=event_time)
 				pygame.mixer.Sound.play(SOUND_LAP)
 			else:
@@ -214,9 +219,9 @@ class StopWatch(Frame):
 
 	def _setLapTime(self, elap):
 		""" Set the time string to Minutes:Seconds:Thousandths """
-		minutes = int(elap/60)
-		seconds = int(elap - minutes*60.0)
-		hseconds = int((elap - minutes*60.0 - seconds)*1000)           
+		whole, fraction = '{:.3f}'.format(elap).split('.')
+		minutes, seconds = divmod(int(whole), 60)
+		hseconds = int(fraction)
 		return '%02d:%02d:%03d' % (minutes, seconds, hseconds)
 		
 	def _bestLap(self, elap):
@@ -292,6 +297,8 @@ class StopWatch(Frame):
 	def Lap(self, event_time=None):
 		'''Makes a lap, only if started'''
 		global race_winner
+		if time_trial_mode and time_trial_lane is not None and time_trial_lane is not self:
+			return False
 		if (self._running):
 			if event_time is None:
 				event_time = time.monotonic()
@@ -300,7 +307,8 @@ class StopWatch(Frame):
 			tempo = current_elapsed - self.lapmod2
 			if tempo < MIN_LAP_TIME_SEC:
 				return False
-			self.laps.append([self._setLapTime(tempo),float("{0:.3f}".format(tempo))])
+			lap_time = float('{:.3f}'.format(tempo))
+			self.laps.append([self._setLapTime(lap_time), lap_time])
 			self.m.insert(END, self.laps[-1][0])
 			self.m.yview_moveto(1)
 			self.lapmod2 = current_elapsed
@@ -312,11 +320,12 @@ class StopWatch(Frame):
 			winning_lap = not time_trial_mode and race_winner is None and len(self.laps) == race_laps
 			if winning_lap:
 				race_winner = self
-			splitTimes(self, announce_leader=not winning_lap)
-			self._bestLap(float("{0:.3f}".format(tempo)))
+			if not time_trial_mode:
+				splitTimes(self, announce_leader=not winning_lap)
+			self._bestLap(lap_time)
 			pygame.mixer.Sound.play(SOUND_LAP)
 			if time_trial_mode:
-				speak(format_lap_time_speech(float("{0:.3f}".format(tempo))))
+				speak(format_lap_time_speech(lap_time))
 			elif winning_lap:
 				speak('Lane {} wins'.format(1 if self is sw else 2))
 			return True
@@ -422,9 +431,9 @@ def updateDebugOverlay():
 	debug_label.config(text=debug_text)
 	root.tk.after(DEBUG_COUNTER_UPDATE_MS, updateDebugOverlay)
 	
-def validRaceLaps():
+def validRaceLaps(race_mode=False):
 	global race_laps
-	if time_trial_mode:
+	if time_trial_mode and not race_mode:
 		return True
 	try:
 		value = int(LapRace.get())
@@ -437,7 +446,7 @@ def validRaceLaps():
 	return True
 
 def StartRace():
-	if countdown_job is not None or sw._running or sw2._running or not validRaceLaps():
+	if time_trial_mode or countdown_job is not None or sw._running or sw2._running or not validRaceLaps():
 		return
 	start_time = time.monotonic()
 	sw.Start(event_time=start_time)
@@ -457,12 +466,13 @@ def cancelCountdown():
 	countdown_widgets = []
 
 def ResetRace():
-	global race_winner
+	global race_winner, time_trial_lane
 	cancelCountdown()
 	StopRace()
 	sw.Reset()
 	sw2.Reset()
 	race_winner = None
+	time_trial_lane = None
 
 def QuitRace():
 	cancelCountdown()
@@ -499,9 +509,12 @@ def ToggleTTS():
 
 def RaceLights():
 	global countdown_job, countdown_widgets
-	if countdown_job is not None or not validRaceLaps():
+	if countdown_job is not None or not validRaceLaps(race_mode=True):
 		return
-	ResetRace()
+	if time_trial_mode:
+		ToggleTimeTrial()
+	else:
+		ResetRace()
 	photos = [PhotoImage(file=str(BASE_DIR / 'imgs' / name)) for name in
 		('light_off_hd.png', 'light_red_hd.png', 'light_green_hd.png')]
 	canvas = Canvas(root.tk, width=1920, height=411, bg=colBg1, highlightthickness=0)

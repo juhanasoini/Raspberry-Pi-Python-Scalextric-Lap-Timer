@@ -10,6 +10,7 @@ class RaceTimingTests(unittest.TestCase):
         timer.countdown_job = None
         timer.countdown_widgets = []
         timer.time_trial_mode = False
+        timer.time_trial_lane = None
         timer.race_laps = 2
         timer.colFg1, timer.colGreen, timer.colRed = 'grey', 'green', 'red'
 
@@ -33,11 +34,36 @@ class RaceTimingTests(unittest.TestCase):
         self.assertTrue(timer.StopWatch.gpioTrigger(lane, 12))
         lane.Start.assert_called_once_with(silent=True, event_time=12)
 
+    def test_time_trial_only_monitors_first_lane_until_reset(self):
+        timer.time_trial_mode = True
+        def lane():
+            return SimpleNamespace(_event_cutoff=0, _last_trigger_time=0, _running=False,
+                                   Start=MagicMock(), Lap=MagicMock(), Stop=MagicMock(), Reset=MagicMock())
+        timer.sw, timer.sw2 = lane(), lane()
+        first, other = timer.sw2, timer.sw
+        self.assertTrue(timer.StopWatch.gpioTrigger(first, 10))
+        first._running = True
+        self.assertFalse(timer.StopWatch.gpioTrigger(other, 11))
+        other.Start.assert_not_called()
+        self.assertTrue(timer.StopWatch.gpioTrigger(first, 12))
+        first.Lap.assert_called_once_with(event_time=12)
+        timer.ResetRace()
+        self.assertTrue(timer.StopWatch.gpioTrigger(other, 13))
+        other.Start.assert_called_once_with(silent=True, event_time=13)
+
+    def test_start_button_does_not_start_both_lanes_in_time_trial(self):
+        timer.time_trial_mode = True
+        timer.sw, timer.sw2 = MagicMock(), MagicMock()
+        timer.sw._running = timer.sw2._running = False
+        timer.StartRace()
+        timer.sw.Start.assert_not_called()
+        timer.sw2.Start.assert_not_called()
+
     def test_clock_shows_current_lap_in_time_trial_and_total_in_race(self):
         for trial, expected in ((True, 3), (False, 8)):
             with self.subTest(time_trial_mode=trial):
                 timer.time_trial_mode = trial
-                lane = SimpleNamespace(_start=0, lapmod2=5, _setTime=MagicMock(), after=MagicMock())
+                lane = SimpleNamespace(_start=0, lapmod2=5, _setTime=MagicMock(), after=MagicMock(), _update=MagicMock())
                 with patch.object(timer.time, 'monotonic', return_value=8):
                     timer.StopWatch._update(lane)
                 lane._setTime.assert_called_once_with(expected)
@@ -90,6 +116,32 @@ class RaceTimingTests(unittest.TestCase):
             timer.cancelCountdown()
             timer.root.tk.after_cancel.assert_called_with('cleanup')
             self.assertEqual(timer.countdown_widgets, [])
+
+    def test_lights_switches_time_trial_off_and_captures_race_laps(self):
+        timer.time_trial_mode = True
+        timer.root = SimpleNamespace(tk=MagicMock())
+        timer.LapRace = MagicMock()
+        timer.LapRace.get.return_value = '3'
+        timer.sw, timer.sw2 = MagicMock(), MagicMock()
+        timer.btn_time_trial = MagicMock()
+        timer.colBg1 = 'black'
+        with patch.object(timer, 'PhotoImage'), patch.object(timer, 'Canvas'), patch.object(timer, 'Label'):
+            timer.RaceLights()
+        self.assertFalse(timer.time_trial_mode)
+        self.assertEqual(timer.race_laps, 3)
+        timer.sw.lap_button.pack_forget.assert_called_once()
+        timer.sw2.lap_button.pack_forget.assert_called_once()
+        timer.btn_time_trial.config.assert_called_with(text='Time Trial', bg='grey')
+
+    def test_lights_keeps_time_trial_active_when_race_laps_are_invalid(self):
+        timer.time_trial_mode = True
+        timer.LapRace = MagicMock()
+        timer.LapRace.get.return_value = '0'
+        with patch.object(timer.messagebox, 'showerror') as error:
+            timer.RaceLights()
+        self.assertTrue(timer.time_trial_mode)
+        self.assertIsNone(timer.countdown_job)
+        error.assert_called_once()
 
 
 if __name__ == '__main__':

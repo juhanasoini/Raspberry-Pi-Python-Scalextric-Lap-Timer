@@ -24,6 +24,7 @@ class TtsTests(unittest.TestCase):
         timer.colPurple = 'purple'
         timer.colFg1 = 'grey'
         timer.race_winner = None
+        timer.time_trial_lane = None
         timer.race_laps = 1
 
     def test_disable_discards_pending_and_reenable_accepts_new_speech(self):
@@ -108,6 +109,19 @@ class TtsTests(unittest.TestCase):
         with patch.object(timer, 'splitTimes'), patch.object(timer, 'speak') as speak:
             timer.StopWatch.Lap(lap, event_time=3.452)
         speak.assert_called_once_with('3 point 4 5 2')
+
+    def test_time_trial_display_and_speech_use_same_rounded_time(self):
+        timer.time_trial_mode = True
+        for elapsed, displayed, spoken in ((3.4528, '00:03:453', '3 point 4 5 3'),
+                                           (59.9998, '01:00:000', '60 point 0 0 0')):
+            with self.subTest(elapsed=elapsed):
+                lane = SimpleNamespace(_running=True, _start=0, lapmod2=0, laps=[],
+                                       _setLapTime=lambda t: timer.StopWatch._setLapTime(None, t),
+                                       m=MagicMock(), lapstr=MagicMock(), _bestLap=MagicMock())
+                with patch.object(timer, 'speak') as speak:
+                    timer.StopWatch.Lap(lane, event_time=elapsed)
+                self.assertEqual(lane.laps[0][0], displayed)
+                speak.assert_called_once_with(spoken)
 
     def test_race_winner_announced_once_and_reset(self):
         def lane():

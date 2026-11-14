@@ -4,7 +4,7 @@ import threading
 import unittest
 from queue import Queue
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 
 with patch.dict(sys.modules, {'RPi': MagicMock(), 'RPi.GPIO': MagicMock(), 'pygame': MagicMock(), 'pyttsx3': MagicMock()}):
@@ -148,6 +148,35 @@ class TtsTests(unittest.TestCase):
                     self.assertIs(timer.race_winner, winner)
                 timer.ResetRace()
                 self.assertIsNone(timer.race_winner)
+
+    def test_last_lap_is_announced_once_after_leader(self):
+        def lane():
+            return SimpleNamespace(_running=True, _start=0, lapmod2=0, laps=[],
+                                   _setLapTime=str, m=MagicMock(), lapstr=MagicMock(),
+                                   lapSplit=MagicMock(), spt=MagicMock(), l=MagicMock(),
+                                   _bestLap=MagicMock())
+        timer.time_trial_mode = False
+        timer.race_laps = 2
+        timer.colGreen, timer.colRed = 'green', 'red'
+        timer.sw, timer.sw2 = lane(), lane()
+        with patch.object(timer, 'speak') as speak:
+            timer.StopWatch.Lap(timer.sw, event_time=2)
+            self.assertEqual(speak.call_args_list, [call('Lane 1 in the lead'), call('Last lap')])
+            speak.reset_mock()
+            timer.StopWatch.Lap(timer.sw2, event_time=3)
+            speak.assert_not_called()
+
+    def test_one_lap_race_announces_last_lap_at_start(self):
+        timer.time_trial_mode = False
+        timer.race_laps = 1
+        timer.countdown_job = None
+        timer.LapRace = MagicMock()
+        timer.LapRace.get.return_value = '1'
+        timer.sw, timer.sw2 = MagicMock(), MagicMock()
+        timer.sw._running = timer.sw2._running = False
+        with patch.object(timer, 'speak') as speak:
+            timer.StartRace()
+        speak.assert_called_once_with('Last lap')
 
     def test_rejected_and_disabled_winner_laps(self):
         timer.time_trial_mode = False

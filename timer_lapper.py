@@ -326,6 +326,9 @@ class StopWatch(Frame):
 				race_winner = self
 			if not time_trial_mode:
 				splitTimes(self, announce_leader=not winning_lap)
+				other_lane = sw2 if self is sw else sw
+				if race_winner is None and len(self.laps) == race_laps - 1 and len(other_lane.laps) < race_laps - 1:
+					speak('Last lap')
 			self._bestLap(lap_time)
 			pygame.mixer.Sound.play(SOUND_LAP)
 			if time_trial_mode:
@@ -455,6 +458,8 @@ def StartRace():
 	start_time = time.monotonic()
 	sw.Start(event_time=start_time)
 	sw2.Start(event_time=start_time)
+	if race_laps == 1:
+		speak('Last lap')
 
 def StopRace():
 	sw.Stop()
@@ -544,6 +549,8 @@ def RaceLights():
 			start_time = time.monotonic()
 			sw.Start(event_time=start_time)
 			sw2.Start(event_time=start_time)
+			if race_laps == 1:
+				speak('Last lap')
 			countdown_job = root.tk.after(1000, cancelCountdown)
 	countdown_job = root.tk.after(int((0.5 + LIGHTS_INTERVAL_SEC) * 1000), step, 0)
 

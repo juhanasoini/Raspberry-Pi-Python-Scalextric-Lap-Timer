@@ -110,8 +110,9 @@ def format_lap_time_speech(seconds_float):
 
 class StopWatch(Frame):
 	""" Implements a stop watch frame widget. """                                                                
-	def __init__(self, parent=None, **kw):        
+	def __init__(self, parent=None, lane_number=1, **kw):
 		Frame.__init__(self, parent, kw)
+		self.lane_number = lane_number
 		global LapRace
 		self.config(bg=colBg2)
 		self._start = 0.0
@@ -160,10 +161,13 @@ class StopWatch(Frame):
 		return True
 
 	def makeWidgets(self):		
+		lane_label = Label(self, text='Lane {}'.format(self.lane_number),
+			fg=colFg2, bg=colBg2, font=('Roboto 40 bold'))
+		lane_label.pack(fill=X, expand=NO, padx=0)
 		l2 = Label(self, textvariable=self.lapstr)
 		self.lapstr.set('Lap: 0 / 0')
 		l2.config(fg=colFg2, bg=colBg2, font=("Roboto 34 bold"))
-		l2.pack(fill=X, expand=NO, pady=(40,0), padx=0)
+		l2.pack(fill=X, expand=NO, padx=0)
 		
 		self.l = Label(self, textvariable=self.timestr)
 		self.l.config(fg=colFg2, bg=colBg2, font=("Roboto 100 bold"))
@@ -635,8 +639,8 @@ def main():
 	bkgc = Canvas(root.tk, width=1920, height=411, bg=colBg2, highlightthickness=0)
 	bkgc.place(x=0, y=0)
 	
-	sw = StopWatch(root.tk)
-	sw2 = StopWatch(root.tk)
+	sw = StopWatch(root.tk, lane_number=1)
+	sw2 = StopWatch(root.tk, lane_number=2)
 	sw.pack(side=LEFT, padx=(60,20))
 	sw2.pack(side=RIGHT, padx=(20,60))
 		
